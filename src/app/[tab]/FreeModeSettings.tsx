@@ -219,7 +219,7 @@ export function FreeModeSettings({
   }
 
   return (
-    <aside className="h-full overflow-y-auto border-l bg-background">
+    <aside className="h-full overflow-y-auto border-l bg-background max-lg:border-l-0 max-lg:border-t">
       <div className="space-y-5 p-4">
         <section className="space-y-3">
           <div className="space-y-1.5">

@@ -92,6 +92,21 @@
     @apply bg-background text-foreground;
   }
 
+  @media (max-width: 767px) {
+    /* Keep iOS from zooming the viewport when an editor field receives focus. */
+    input,
+    textarea,
+    select,
+    [role='combobox'] {
+      font-size: 16px;
+    }
+
+    /* Mobile browsers reserve space for system gestures near the screen edges. */
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
   .animated-title {
     position: relative;
     color: transparent;

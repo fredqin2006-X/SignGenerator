@@ -83,7 +83,7 @@ export function SignList({
   const popoverSign = signs.find(sign => sign.id === popoverEditor?.id)
   const dialogSign = signs.find(sign => sign.id === dialogEditorId)
   const actionButtonClass
-    = 'flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent-foreground/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-30'
+    = 'flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent-foreground/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-30 sm:size-5'
   const deleteButton = (sign: Sign, onClick?: () => void) => <button
     type="button"
     onClick={onClick}
@@ -136,7 +136,7 @@ export function SignList({
   }
 
   return (
-    <aside className="h-full overflow-y-auto border-r bg-background max-md:max-h-32 max-md:border-b max-md:border-r-0">
+    <aside className="h-full overflow-y-auto border-r bg-background max-md:max-h-29 max-md:overflow-hidden max-md:border-b max-md:border-r-0">
       <div className="p-3 max-md:py-2">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -200,7 +200,7 @@ export function SignList({
                   draggable={Boolean(onReorder)}
                   onDragStart={event => startDrag(event, sign)}
                   onDragEnd={endDrag}
-                  className="absolute left-1 top-1/2 flex size-6 -translate-y-1/2 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 hover:bg-accent-foreground/10 hover:text-foreground active:cursor-grabbing group-hover:opacity-100"
+                  className="absolute left-1 top-1/2 hidden size-7 -translate-y-1/2 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 hover:bg-accent-foreground/10 hover:text-foreground active:cursor-grabbing group-hover:opacity-100 sm:flex sm:size-6"
                   aria-label={`拖动排序 ${signTitle(sign)}`}
                   title="拖动排序"
                 >
@@ -209,7 +209,7 @@ export function SignList({
                 <button
                   type="button"
                   onClick={() => onSelect(sign.id)}
-                  className="flex w-full items-center gap-2 py-2 pl-8 pr-8 text-left"
+                  className="flex w-full items-center gap-2 py-2.5 pl-3 pr-9 text-left sm:py-2 sm:pl-8"
                   title={isForkSign(sign) ? info.join('\n') : signTitle(sign)}
                 >
                   <Badge variant={signBadgeVariant(sign)}>{signBadge(sign)}</Badge>
@@ -217,7 +217,7 @@ export function SignList({
                     {signTitle(sign)}
                   </span>
                 </button>
-                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>{deleteButton(sign)}</AlertDialogTrigger>
                     <AlertDialogContent>

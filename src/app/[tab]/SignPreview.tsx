@@ -349,12 +349,12 @@ export function SignPreview({
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col bg-muted">
-      <div className="flex h-11 shrink-0 items-center justify-between border-b bg-background px-3">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b bg-background px-3">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="size-7"
+            className="size-8"
             onClick={() => zoom(0.8)}
             title="缩小"
           >
@@ -366,23 +366,23 @@ export function SignPreview({
           <Button
             variant="ghost"
             size="icon"
-            className="size-7"
+            className="size-8"
             onClick={() => zoom(1.25)}
             title="放大"
           >
             <ZoomIn className="size-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="size-7" onClick={reset} title="复位">
+          <Button variant="ghost" size="icon" className="size-8" onClick={reset} title="复位">
             <RotateCcw className="size-3.5" />
           </Button>
         </div>
-        <Button variant="ghost" size="icon" className="size-7" onClick={download} title="下载 SVG">
+        <Button variant="ghost" size="icon" className="size-8" onClick={download} title="下载 SVG">
           <Download className="size-3.5" />
         </Button>
       </div>
       <div
         ref={previewRef}
-        className={`relative flex min-h-0 min-w-0 w-full flex-1 touch-none select-none items-center justify-center overflow-hidden p-6 ${showPixelMeasure ? 'cursor-crosshair' : isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`relative flex min-h-0 min-w-0 w-full flex-1 touch-none select-none items-center justify-center overflow-hidden p-6 max-md:p-3 ${showPixelMeasure ? 'cursor-crosshair' : isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{
           backgroundImage: 'radial-gradient(var(--sign-preview-grid) 0.75px, transparent 0.75px)',
           backgroundSize: '16px 16px',
