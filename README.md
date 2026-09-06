@@ -9,7 +9,7 @@ https://fredqin2006-x.github.io/SignGenerator/
 在线版无需安装软件；编辑内容仅保存在访问者当前浏览器中，不会上传或同步到服务器。
 
 ## 本地运行
-
+安装包下载链接：https://ug.link/fredqin2006/filemgr/share-download/?id=c9e6557918fb457f82d8d39e909072a9
 需要 Node.js 20.9 或更高版本。
 
 ```powershell
