@@ -43,9 +43,15 @@ const VALID_TABS: ReadonlySet<string> = new Set<WorkspaceTab>([
   'free-mode',
 ])
 
-export default function TabPage() {
+interface TabPageProps {
+  defaultTab?: WorkspaceTab
+}
+
+export default function TabPage({
+  defaultTab,
+}: TabPageProps) {
   const params = useParams<{ tab: string }>()
-  const tabParam = params.tab
+  const tabParam = defaultTab ?? params.tab
   if (typeof tabParam !== 'string' || !VALID_TABS.has(tabParam)) {
     redirect('/signs')
   }
