@@ -6,6 +6,9 @@ import {
 } from 'next/navigation'
 
 import {
+  CrossroadsSettings,
+} from '@/[tab]/CrossroadsSettings'
+import {
   DestinationDistanceSettings,
 } from '@/[tab]/DestinationDistanceSettings'
 import {
@@ -93,16 +96,21 @@ export default function TabPage({
               sign={workspace.selectedSign}
               roadSignList={workspace.ordinaryExitRoadSignList}
               onChange={workspace.updateSign}
-            /> : tabParam === 'intersection-guidance' ? <IntersectionSettings
-              sign={workspace.selectedSign}
-              roadSignList={workspace.ordinaryExitRoadSignList}
-              onChange={workspace.updateSign}
-            /> : <SignSettings
-              sign={workspace.selectedSign}
-              onChange={workspace.updateSign}
-              expresswaySignList={workspace.expresswaySignList}
-              ordinaryExitRoadSignList={workspace.ordinaryExitRoadSignList}
-            />}
+            /> : tabParam === 'intersection-guidance'
+            && workspace.selectedSign.template === 'crossroads-guidance' ? <CrossroadsSettings
+                sign={workspace.selectedSign}
+                roadSignList={workspace.ordinaryExitRoadSignList}
+                onChange={workspace.updateSign}
+              /> : tabParam === 'intersection-guidance' ? <IntersectionSettings
+                sign={workspace.selectedSign}
+                roadSignList={workspace.ordinaryExitRoadSignList}
+                onChange={workspace.updateSign}
+              /> : <SignSettings
+                sign={workspace.selectedSign}
+                onChange={workspace.updateSign}
+                expresswaySignList={workspace.expresswaySignList}
+                ordinaryExitRoadSignList={workspace.ordinaryExitRoadSignList}
+              />}
         </div>
       </main>
     </>

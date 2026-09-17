@@ -15,7 +15,8 @@ import {
 } from '../generators/generator'
 
 import type {
-  DestinationDistanceConfig, ExpresswayKind, FreeSignConfig, IntersectionConfig,
+  CrossroadsConfig, CrossroadsItem, DestinationDistanceConfig, ExpresswayKind,
+  FreeSignConfig, IntersectionConfig, IntersectionItem,
   OrdinaryRoadKind, RoundaboutConfig, RoundaboutDirection, Sign, SignKind,
   SignTemplate, UrbanRoadStyle,
 } from './types'
@@ -150,6 +151,10 @@ export const INTERSECTION_ADD_CHOICES = [
     label: '交叉路口指路标志',
   },
   {
+    value: 'crossroads-guidance',
+    label: '十字路口图形式',
+  },
+  {
     value: 'roundabout-guidance',
     label: '环岛图形式',
   },
@@ -239,6 +244,7 @@ export function isTemplateParam(value: string | null): value is SignTemplate {
     case 'standard-exit-sign':
     case 'ordinary-road-exit':
     case 'intersection-guidance':
+    case 'crossroads-guidance':
     case 'roundabout-guidance':
     case 'destination-distance':
     case 'free-mode':
@@ -269,6 +275,7 @@ export function visibleSignsForTab(signs: Sign[], tab: SignWorkspaceTab) {
   switch (tab) {
     case 'intersection-guidance':
       return signs.filter(sign => sign.template === 'intersection-guidance'
+        || sign.template === 'crossroads-guidance'
         || sign.template === 'roundabout-guidance')
     case 'destination-distance':
       return signs.filter(sign => sign.template === 'destination-distance')
@@ -494,6 +501,7 @@ export function normalizeSign(overrides: Partial<Sign> = {
       typeof overrides.ordinaryExitRoadSignId === 'string' ? overrides.ordinaryExitRoadSignId : '',
     popoverColor: isPopoverColor(overrides.popoverColor) ? overrides.popoverColor : 'slate',
     intersectionConfig: normalizeIntersectionConfig(overrides.intersectionConfig),
+    crossroadsConfig: normalizeCrossroadsConfig(overrides.crossroadsConfig),
     roundaboutConfig: normalizeRoundaboutConfig(overrides.roundaboutConfig),
     destinationDistanceConfig: normalizeDestinationDistanceConfig(
       overrides.destinationDistanceConfig,
@@ -562,6 +570,8 @@ export function defaultOptionName(sign: Pick<Sign, 'template' | 'digits' | 'kind
       return '普通道路出口'
     case 'intersection-guidance':
       return '交叉路口指路标志'
+    case 'crossroads-guidance':
+      return '十字路口图形式'
     case 'roundabout-guidance':
       return '环岛图形式'
     case 'destination-distance':
@@ -570,6 +580,80 @@ export function defaultOptionName(sign: Pick<Sign, 'template' | 'digits' | 'kind
       return '自由标志'
     default:
       return FORK_SIGN_NAME[sign.template]
+  }
+}
+
+function normalizeCrossroadsConfig(value: CrossroadsConfig | undefined): CrossroadsConfig {
+  type LegacyFields = {
+    topRoad?: string; topDistance?: string; expresswayRoad?: string; expresswayDistance?: string
+    leftRoad?: string; rightRoad?: string
+    leftSideRoad?: string; rightSideRoad?: string
+  }
+  const source = value && typeof value === 'object' ? value as CrossroadsConfig & LegacyFields : undefined
+  const cleanText = (value: unknown, max = 16) => Array.from(
+    typeof value === 'string' ? value.trim() : '',
+  ).slice(0, max).join('')
+  const cleanDistance = (value: unknown) => cleanText(value, 8).replace(/[^0-9.km米公里]/gi, '')
+  const makeItem = (text: string, distance = '', highlighted = false): CrossroadsItem => ({
+    id: `crossroads-item-${Math.random().toString(36).slice(2, 8)}`,
+    type: 'text',
+    text,
+    roadSignId: '',
+    distance,
+    highlighted,
+  })
+  const legacyDirections: CrossroadsConfig['directions'] = {
+    straight: [
+      makeItem(cleanText(source?.topRoad ?? '湖山路'), cleanDistance(source?.topDistance ?? '250m')),
+      ...source?.expresswayRoad === '' ? [] : [makeItem(
+        cleanText(source?.expresswayRoad ?? '宁杭高速'),
+        cleanDistance(source?.expresswayDistance ?? '450m'),
+        true,
+      )],
+    ],
+    left: [makeItem(cleanText(source?.leftRoad ?? '湖西路'))],
+    right: [makeItem(cleanText(source?.rightRoad ?? '湖西路'))],
+  }
+  const normalizeItems = (direction: keyof CrossroadsConfig['directions']) => {
+    const raw = source?.directions?.[direction]
+    if (!Array.isArray(raw)) { return legacyDirections[direction] }
+    const selected = direction !== 'straight' && !raw.length ? [makeItem('')] : raw
+    return selected.slice(0, direction === 'straight' ? 5 : 1).map(item => ({
+      id: typeof item?.id === 'string' && item.id ? item.id : makeItem('').id,
+      type: item?.type === 'road-sign' ? 'road-sign' as const : 'text' as const,
+      text: cleanText(item?.text, 24),
+      roadSignId: typeof item?.roadSignId === 'string' ? item.roadSignId : '',
+      distance: direction === 'straight' ? cleanDistance(item?.distance) : '',
+      highlighted: Boolean(item?.highlighted),
+    }))
+  }
+  const leftSideRoads = source?.leftSideRoads
+  const rightSideRoads = source?.rightSideRoads
+  const normalizeSideRoads = (roads: unknown, legacyRoad: string): IntersectionItem[] => {
+    if (!Array.isArray(roads)) { return [makeItem(legacyRoad)] }
+    return roads.slice(0, 3).map(road => typeof road === 'string'
+      ? makeItem(cleanText(road))
+      : {
+        id: typeof road?.id === 'string' && road.id ? road.id : makeItem('').id,
+        type: road?.type === 'road-sign' ? 'road-sign' as const : 'text' as const,
+        text: cleanText(road?.text),
+        roadSignId: typeof road?.roadSignId === 'string' ? road.roadSignId : '',
+      })
+  }
+  return {
+    cardinalDirection: source?.cardinalDirection === ''
+      ? ''
+      : cleanDirection(source?.cardinalDirection ?? '北', '北'),
+    centerRoad: cleanText(source?.centerRoad ?? '宏运大道'),
+    directions: {
+      straight: normalizeItems('straight'),
+      left: normalizeItems('left'),
+      right: normalizeItems('right'),
+    },
+    leftSideRoads: normalizeSideRoads(leftSideRoads, source?.leftSideRoad ?? '上高路'),
+    leftSideDistance: cleanDistance(source?.leftSideDistance ?? '240m'),
+    rightSideRoads: normalizeSideRoads(rightSideRoads, source?.rightSideRoad ?? ''),
+    rightSideDistance: cleanDistance(source?.rightSideDistance ?? ''),
   }
 }
 

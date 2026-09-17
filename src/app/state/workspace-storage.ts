@@ -178,6 +178,11 @@ export function normalizeWorkspace(
       template: 'intersection-guidance',
     }))
   }
+  if (!normalizedSigns.some(sign => sign.template === 'crossroads-guidance')) {
+    normalizedSigns.push(createSign({
+      template: 'crossroads-guidance',
+    }))
+  }
   if (!normalizedSigns.some(sign => sign.template === 'roundabout-guidance')) {
     normalizedSigns.push(createSign({
       template: 'roundabout-guidance',

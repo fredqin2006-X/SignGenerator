@@ -93,6 +93,7 @@ export function SignPreview({
     sign.entranceDistanceUnit,
     JSON.stringify(sign.freeConfig),
     JSON.stringify(sign.intersectionConfig),
+    JSON.stringify(sign.crossroadsConfig),
     JSON.stringify(sign.roundaboutConfig),
     JSON.stringify(sign.destinationDistanceConfig),
     roadSignList.map(roadSign => `${roadSign.id}:${roadSign.code}:${roadSign.name}:${roadSign.urbanRoadName}`).join(','),

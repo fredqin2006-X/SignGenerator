@@ -18,6 +18,7 @@ export type SignTemplate =
   | 'standard-exit-sign'
   | 'ordinary-road-exit'
   | 'intersection-guidance'
+  | 'crossroads-guidance'
   | 'roundabout-guidance'
   | 'destination-distance'
   | 'free-mode'
@@ -67,6 +68,21 @@ export interface IntersectionConfig {
   centerRoadName: string
   cardinalDirection: string
   directions: Record<IntersectionDirection, IntersectionItem[]>
+}
+
+export interface CrossroadsConfig {
+  cardinalDirection: string
+  centerRoad: string
+  directions: Record<IntersectionDirection, CrossroadsItem[]>
+  leftSideRoads: IntersectionItem[]
+  leftSideDistance: string
+  rightSideRoads: IntersectionItem[]
+  rightSideDistance: string
+}
+
+export interface CrossroadsItem extends IntersectionItem {
+  distance: string
+  highlighted: boolean
 }
 
 export interface RoundaboutExit {
@@ -187,6 +203,7 @@ export interface Sign {
   ordinaryExitRoadSignId: string
   popoverColor: PopoverColor
   intersectionConfig: IntersectionConfig
+  crossroadsConfig: CrossroadsConfig
   roundaboutConfig: RoundaboutConfig
   destinationDistanceConfig: DestinationDistanceConfig
   freeConfig: FreeSignConfig

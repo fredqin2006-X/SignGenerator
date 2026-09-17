@@ -41,6 +41,9 @@ import {
   UrbanExpresswayExitPreviewSign,
 } from './interchange/urban-expressway-preview'
 import {
+  CrossroadsGuidanceSign,
+} from './intersection/crossroads-guidance'
+import {
   IntersectionGuidanceSign,
 } from './intersection/intersection-guidance'
 import {
@@ -63,6 +66,8 @@ function SignSvgContent(sign: Sign, roadSignList: Sign[] = []) {
   switch (sign.template) {
     case 'intersection-guidance':
       return <IntersectionGuidanceSign sign={sign} roadSignList={roadSignList} />
+    case 'crossroads-guidance':
+      return <CrossroadsGuidanceSign sign={sign} roadSignList={roadSignList} />
     case 'roundabout-guidance':
       return <RoundaboutGuidanceSign sign={sign} roadSignList={roadSignList} />
     case 'destination-distance':
@@ -143,6 +148,10 @@ export function signFilename(sign: Sign) {
     }
     case 'intersection-guidance': {
       code = `交叉路口_${sign.intersectionConfig.centerRoadName || '未命名'}`
+      break
+    }
+    case 'crossroads-guidance': {
+      code = `十字路口图形式_${sign.crossroadsConfig.centerRoad || '未命名'}`
       break
     }
     case 'roundabout-guidance': {

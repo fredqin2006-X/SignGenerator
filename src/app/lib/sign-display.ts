@@ -29,6 +29,7 @@ export function isForkSign(sign: Sign) {
     case 'entrance-preview-two-directions':
     case 'standard-exit-sign':
     case 'intersection-guidance':
+    case 'crossroads-guidance':
     case 'roundabout-guidance':
     case 'destination-distance':
       return true
@@ -63,6 +64,8 @@ export function signBadge(sign: Sign) {
       return '城市路名'
     case 'intersection-guidance':
       return '路口'
+    case 'crossroads-guidance':
+      return '十字路口'
     case 'roundabout-guidance':
       return '环岛'
     case 'destination-distance':
@@ -100,6 +103,7 @@ export function defaultSignBadgeVariant(sign: Sign) {
     case 'urban-expressway-entrance-preview':
     case 'entrance-preview-two-directions':
     case 'intersection-guidance':
+    case 'crossroads-guidance':
     case 'roundabout-guidance':
     case 'destination-distance':
       return 'fork'
@@ -172,6 +176,9 @@ export function signTitle(sign: Sign) {
     case 'intersection-guidance':
       defaultName = '交叉路口指路标志'
       break
+    case 'crossroads-guidance':
+      defaultName = '十字路口图形式'
+      break
     case 'roundabout-guidance':
       defaultName = '环岛图形式'
       break
@@ -197,6 +204,12 @@ export function signInfo(sign: Sign) {
       return [
         `交叉道路：${sign.intersectionConfig.centerRoadName || '未填写'}`,
         `方向内容：${Object.values(sign.intersectionConfig.directions).reduce((sum, items) => sum + items.length, 0)} 行`,
+      ]
+    case 'crossroads-guidance':
+      return [
+        `中央道路：${sign.crossroadsConfig.centerRoad || '未填写'}`,
+        `方向内容：${Object.values(sign.crossroadsConfig.directions).reduce((sum, items) => sum + items.length, 0)} 行`,
+        `方位：${sign.crossroadsConfig.cardinalDirection || '不显示'}`,
       ]
     case 'roundabout-guidance':
       return [
@@ -277,6 +290,7 @@ export function signInfo(sign: Sign) {
 export function deleteDialogTitle(sign: Sign) {
   if (sign.template === 'free-mode') {return '删除自由标志？'}
   if (sign.template === 'intersection-guidance') {return '删除交叉路口指引？'}
+  if (sign.template === 'crossroads-guidance') {return '删除十字路口图形式？'}
   if (sign.template === 'roundabout-guidance') {return '删除环岛图形式？'}
   if (sign.template === 'destination-distance') {return '删除地点距离标识？'}
   if (
