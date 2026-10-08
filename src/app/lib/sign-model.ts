@@ -325,6 +325,9 @@ export function normalizeSign(overrides: Partial<Sign> = {
     'plain',
     'right-chevron',
     'bidirectional',
+    'bidirectional-hexagon',
+    'unidirectional-hexagon',
+    'straight-direction',
     'straight-text',
     'straight-route',
   ]
@@ -470,6 +473,8 @@ export function normalizeSign(overrides: Partial<Sign> = {
       : 'bidirectional',
     urbanRoadRouteSignId:
       typeof overrides.urbanRoadRouteSignId === 'string' ? overrides.urbanRoadRouteSignId : '',
+    urbanLeftDirection: cleanDirection(overrides.urbanLeftDirection ?? '北', '北'),
+    urbanRightDirection: cleanDirection(overrides.urbanRightDirection ?? '南', '南'),
     urbanDirection: cleanDirection(
       overrides.urbanDirection ?? defaultUrbanDirection,
       defaultUrbanDirection,

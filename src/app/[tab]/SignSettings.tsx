@@ -1,5 +1,5 @@
 import {
-  useEffect, useRef, useState, type ChangeEvent, type CompositionEvent,
+  useEffect, useMemo, useRef, useState, type ChangeEvent, type CompositionEvent,
 } from 'react'
 
 import {
@@ -26,14 +26,32 @@ import {
   expresswayNameLimit,
 } from '@/lib/expressway-name'
 import type {
-  ExpresswayKind, Sign, SignKind,
+  ExpresswayKind, Sign, SignKind, UrbanRoadStyle,
 } from '@/lib/types'
+import {
+  cn,
+} from '@/lib/utils'
 
 import {
+  SignThumbnail,
+} from './SignThumbnail'
+import {
+  DIRECTION_LETTER_OPTIONS,
   DIRECTION_OPTIONS,
   ENTRANCE_ARROW_DIRECTION_OPTIONS,
   ORDINARY_KIND_OPTIONS,
 } from '../lib/sign-options'
+
+const URBAN_ROAD_STYLE_OPTIONS = [
+  ['plain', '无图形'],
+  ['right-chevron', '右向尖角'],
+  ['bidirectional', '双向尖角'],
+  ['bidirectional-hexagon', '双向＋六边形'],
+  ['unidirectional-hexagon', '单向＋六边形'],
+  ['straight-direction', '直行＋箭头'],
+  ['straight-text', '直行＋路名'],
+  ['straight-route', '直行＋编号牌'],
+] as const satisfies readonly (readonly [UrbanRoadStyle, string])[]
 
 interface SignSettingsProps {
   sign: Sign
@@ -46,19 +64,27 @@ function DirectionSelect({
   id,
   value,
   onValueChange,
+  withLetter = false,
 }: {
   id: string
   value: string
   onValueChange: (value: string) => void
+  withLetter?: boolean
 }) {
+  const options = withLetter
+    ? DIRECTION_LETTER_OPTIONS
+    : DIRECTION_OPTIONS.map(direction => ({
+      value: direction,
+      label: direction,
+    }))
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger id={id}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {DIRECTION_OPTIONS.map(direction => <SelectItem key={direction} value={direction}>
-          {direction}
+        {options.map(option => <SelectItem key={option.value} value={option.value}>
+          {option.label}
         </SelectItem>,
         )}
       </SelectContent>
@@ -154,6 +180,16 @@ export function SignSettings({
   const [exitDestinationInput, setExitDestinationInput] = useState(sign.exitDestination)
   const [urbanRoadNameInput, setUrbanRoadNameInput] = useState(sign.urbanRoadName)
   const [urbanDestinationInput, setUrbanDestinationInput] = useState(sign.urbanDestination)
+  // 样式缩略图：同一个标志换各样式渲染，和选中样式用的是完全一致的数据。
+  const urbanStylePreviews = useMemo(
+    () => sign.template === 'urban-road-name'
+      ? URBAN_ROAD_STYLE_OPTIONS.map(([value]) => ({
+        ...sign,
+        urbanRoadStyle: value,
+      }))
+      : [],
+    [sign],
+  )
 
   // Keep local drafts synchronized with external sign changes, including IME composition.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -538,25 +574,74 @@ export function SignSettings({
             {sign.template === 'urban-road-name' && <>
               <div className="space-y-1.5">
                 <Label>标志样式</Label>
-                <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
-                  {([
-                    ['plain', '无图形'],
-                    ['right-chevron', '右向尖角'],
-                    ['bidirectional', '双向尖角'],
-                    ['straight-text', '直行＋路名'],
-                    ['straight-route', '直行＋编号牌'],
-                  ] as const).map(([value, label]) => <Button
+                <div className="grid grid-cols-2 gap-1.5">
+                  {URBAN_ROAD_STYLE_OPTIONS.map(([value, label], index) => <button
                     key={value}
-                    variant={sign.urbanRoadStyle === value ? 'default' : 'ghost'}
-                    className="h-8 rounded-sm text-xs"
+                    type="button"
                     onClick={() => onChange({
                       urbanRoadStyle: value,
                     })}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-md border p-1.5 transition-colors',
+                      sign.urbanRoadStyle === value
+                        ? 'border-primary bg-accent text-accent-foreground'
+                        : 'border-border hover:bg-accent/50',
+                    )}
                   >
-                    {label}
-                  </Button>)}
+                    <SignThumbnail
+                      sign={urbanStylePreviews[index]}
+                      roadSignList={ordinaryExitRoadSignList}
+                      className="h-10 w-full"
+                    />
+                    <span className="text-[11px] leading-tight">{label}</span>
+                  </button>)}
                 </div>
               </div>
+              {sign.urbanRoadStyle === 'bidirectional-hexagon' && <div className="space-y-1.5">
+                <Label>两端方向</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">左侧</span>
+                    <DirectionSelect
+                      id="urban-left-direction"
+                      value={sign.urbanLeftDirection}
+                      withLetter
+                      onValueChange={value => onChange({
+                        urbanLeftDirection: value,
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">右侧</span>
+                    <DirectionSelect
+                      id="urban-right-direction"
+                      value={sign.urbanRightDirection}
+                      withLetter
+                      onValueChange={value => onChange({
+                        urbanRightDirection: value,
+                      })}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  方向字下方会自动配相应的英文首字母。
+                </p>
+              </div>}
+              {(sign.urbanRoadStyle === 'unidirectional-hexagon'
+                || sign.urbanRoadStyle === 'straight-direction') && <div className="space-y-1.5">
+                <Label htmlFor="urban-way-direction">方向</Label>
+                <DirectionSelect
+                  id="urban-way-direction"
+                  value={sign.urbanLeftDirection}
+                  withLetter
+                  onValueChange={value => onChange({
+                    urbanLeftDirection: value,
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  方向字下方会自动配相应的英文首字母。
+                </p>
+              </div>}
               {sign.urbanRoadStyle === 'straight-route' && <div className="space-y-1.5">
                 <Label htmlFor="urban-road-route-sign">道路编号牌</Label>
                 <Select

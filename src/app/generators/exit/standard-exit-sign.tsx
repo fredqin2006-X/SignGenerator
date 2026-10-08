@@ -17,8 +17,6 @@ import {
   RouteSignNode,
 } from '../sign/route-sign'
 import {
-  GREEN,
-  WHITE,
   escapeXml,
   OutlinedText,
   textLayout,
@@ -27,6 +25,9 @@ import {
   NUMBERED_EXIT_WIDTH,
   NumberedExitSignNode,
 } from './numbered-exit'
+import {
+  useSignColors,
+} from '../sign-colors'
 import {
   ExitDirectionArrow,
 } from './right-exit-arrow'
@@ -65,6 +66,9 @@ function fitDestinationText(font: ReturnType<typeof useFont>, text: string) {
 export function StandardExitSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const route = cleanExitRoute(sign.rightRoute, 'G15', sign.rightRouteKind)

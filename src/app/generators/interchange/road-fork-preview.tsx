@@ -28,7 +28,10 @@ import {
   RouteSignNode,
 } from '../sign/route-sign'
 import {
-  GREEN, WHITE, escapeXml, OutlinedText,
+  useSignColors,
+} from '../sign-colors'
+import {
+  escapeXml, OutlinedText,
 } from '../svg-text'
 
 import type {
@@ -64,6 +67,9 @@ interface DirectionPlateProps {
 function DirectionPlate({
   fontChinese, text, x, y,
 }: DirectionPlateProps) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   return (
     <>
       <rect x={x} y={y} width={DIRECTION_SIGN_SIZE} height={DIRECTION_SIGN_SIZE} fill={WHITE} />
@@ -83,6 +89,9 @@ function DirectionPlate({
 export function RoadForkPreviewSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const exitNumber = cleanExitNumber(sign.exitNumber)

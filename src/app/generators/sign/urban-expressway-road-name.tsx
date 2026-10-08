@@ -2,8 +2,9 @@ import {
   useFont,
 } from '../../fonts/FontContext'
 import {
-  GREEN,
-  WHITE,
+  useTemplateColors,
+} from '../sign-colors'
+import {
   OutlinedText,
   textLayout,
 } from '../svg-text'
@@ -30,7 +31,16 @@ export function UrbanExpresswayRoadNameSign({
   y,
   width: renderedWidth,
   height: renderedHeight,
-}: { name: string; x?: number; y?: number; width?: number; height?: number }) {
+}: {
+  name: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+}) {
+  const {
+    plate, text: textColor, border,
+  } = useTemplateColors('urban-expressway-road-name')
   const font = useFont('a')
   const {
     text, width,
@@ -46,7 +56,7 @@ export function UrbanExpresswayRoadNameSign({
       role="img"
       aria-label={`${text} 无编号快速路道路标识`}
     >
-      <rect width={width} height={HEIGHT} rx="72" fill={GREEN} />
+      <rect width={width} height={HEIGHT} rx="72" fill={plate} />
       <rect
         x={PADDING}
         y={PADDING}
@@ -54,7 +64,7 @@ export function UrbanExpresswayRoadNameSign({
         height={HEIGHT - PADDING * 2}
         rx="48"
         fill="none"
-        stroke={WHITE}
+        stroke={border}
         strokeWidth="14"
       />
       <OutlinedText
@@ -64,7 +74,7 @@ export function UrbanExpresswayRoadNameSign({
         startY={105}
         width={width - (PADDING + 28) * 2}
         height={150}
-        fill={WHITE}
+        fill={textColor}
         options={{
           maxGap: 30,
           minGap: 12,

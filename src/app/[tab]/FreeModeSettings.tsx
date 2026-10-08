@@ -14,6 +14,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/select'
+import {
+  usePalette,
+} from '@/lib/palette-context'
 import type {
   FreeCardinalDirection, FreeSignConfig, FreeSignElement, FreeSignRow, Sign,
 } from '@/lib/types'
@@ -55,21 +58,19 @@ const VARIANTS: { value: FreeSignConfig['variant']; label: string }[] = [
   },
 ]
 
-const BACKGROUNDS: { value: FreeSignConfig['background']; label: string; color: string }[] = [
+/** 背景选项的值就是色板里的颜色名，小圆点直接按当前色板取色。 */
+const BACKGROUNDS: { value: FreeSignConfig['background']; label: string }[] = [
   {
     value: 'green',
     label: '绿色',
-    color: '#359b47',
   },
   {
     value: 'blue',
     label: '蓝色',
-    color: '#1769aa',
   },
   {
     value: 'brown',
     label: '棕色',
-    color: '#8a5a36',
   },
 ]
 
@@ -176,6 +177,9 @@ export function FreeModeSettings({
   roadSignList,
   onChange,
 }: FreeModeSettingsProps) {
+  const {
+    palette,
+  } = usePalette()
   const config = sign.freeConfig
   const updateConfig = (updates: Partial<FreeSignConfig>) => onChange({
     freeConfig: {
@@ -260,7 +264,7 @@ export function FreeModeSettings({
                 })}
               >
                 <span className="size-2.5 rounded-full border border-white/50" style={{
-                  background: background.color,
+                  background: palette[background.value],
                 }} />
                 {background.label}
               </Button>)}

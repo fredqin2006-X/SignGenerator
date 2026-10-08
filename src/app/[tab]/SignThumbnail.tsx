@@ -55,6 +55,8 @@ function roadSignListEqual(previous: Sign[], next: Sign[]) {
       && sign.name === other.name
       && sign.urbanRoadName === other.urbanRoadName
       && sign.urbanRoadStyle === other.urbanRoadStyle
+      && sign.urbanLeftDirection === other.urbanLeftDirection
+      && sign.urbanRightDirection === other.urbanRightDirection
   })
 }
 

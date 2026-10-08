@@ -1,6 +1,9 @@
 import {
   FontsProvider,
 } from '@/fonts/FontsProvider'
+import {
+  PaletteProvider,
+} from '@/lib/palette-context'
 
 // @ts-expect-error 导入它本身而不是作为模块
 import applyDarkmode from './applyDarkmode.raw.ts'
@@ -35,7 +38,9 @@ export default function RootLayout({
       </head>
       <body className="flex h-dvh flex-col bg-background">
         <FontsProvider>
-          {children}
+          <PaletteProvider>
+            {children}
+          </PaletteProvider>
         </FontsProvider>
       </body>
     </html>

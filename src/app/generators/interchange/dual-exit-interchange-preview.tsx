@@ -16,7 +16,10 @@ import {
   RouteSignNode,
 } from '../sign/route-sign'
 import {
-  WHITE, escapeXml, OutlinedText,
+  useSignColors,
+} from '../sign-colors'
+import {
+  escapeXml, OutlinedText,
 } from '../svg-text'
 
 const TEMPLATE_WIDTH = 583.96
@@ -54,6 +57,9 @@ function rowLayout(preferredRouteWidth: number) {
 export function DualExitInterchangePreviewSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const firstRoute = cleanExitRoute(sign.leftRoute, 'G55', sign.leftRouteKind)

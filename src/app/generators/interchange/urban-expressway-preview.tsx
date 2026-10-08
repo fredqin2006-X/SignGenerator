@@ -19,8 +19,9 @@ import {
   RawSvg,
 } from '../raw-svg'
 import {
-  GREEN,
-  WHITE,
+  useSignColors,
+} from '../sign-colors'
+import {
   escapeXml,
   OutlinedText,
   textLayout,
@@ -106,6 +107,9 @@ function ExitDestinationBlock({
   width,
   height,
 }: { font: Font; text: string; x: number; width: number; height: number }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const lines = destinationLines(text)
   const blockHeight = lines.length * height
     + Math.max(0, lines.length - 1) * ENTRANCE_DESTINATION_LINE_GAP
@@ -156,6 +160,9 @@ function EntranceDestinationBlock({
   x,
   height,
 }: { font: Font; text: string; x: number; height: number }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const lines = destinationLines(text)
   const blockHeight = lines.length * height
     + Math.max(0, lines.length - 1) * ENTRANCE_DESTINATION_LINE_GAP
@@ -186,6 +193,9 @@ function DirectionPlate({
   x,
   y,
 }: { font: Font; text: string; x: number; y: number }) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   return (
     <>
       <rect x={x} y={y} width="54" height="54" rx="3" fill={GREEN} />
@@ -205,6 +215,9 @@ function DirectionPlate({
 function SignFrame({
   children,
 }: { children: ReactNode }) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   return (
     <>
       <rect x={BOARD_X} y={BOARD_Y} width={BOARD_WIDTH} height={BOARD_HEIGHT} rx="34" fill={GREEN} />
@@ -223,6 +236,9 @@ function Arrow({
   x,
   y,
 }: { direction: ArrowDirection; x: number; y: number }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const normalized = cleanEntranceArrowDirection(direction)
   const path = normalized === 'front'
     ? 'M 33 78 H 47 V 42 H 65 L 40 14 L 15 42 H 33 Z'
@@ -237,6 +253,9 @@ function UrbanRoadHeader({
   roadName,
   direction,
 }: { font: Font; roadName: string; direction?: string }) {
+  const {
+    plate: GREEN,
+  } = useSignColors()
   const roadNameWidth = direction ? 430 : 500
   const roadNameHeight = fitDestinationHeight(font, roadName, roadNameWidth)
   return (
@@ -320,6 +339,9 @@ export function UrbanExpresswayExitPreviewSign({
 export function UrbanExpresswayEntrancePreviewSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const roadName = cleanExitText(sign.urbanRoadName, '九水路', 12)

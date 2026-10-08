@@ -1,3 +1,6 @@
+import {
+  type SignColorKey,
+} from '@/lib/palette'
 import type {
   OrdinaryRoadKind,
 } from '@/lib/types'
@@ -6,7 +9,10 @@ import {
   useFont,
 } from '../../fonts/FontContext'
 import {
-  BLACK, RED, WHITE, YELLOW, OutlinedText,
+  useSignColors,
+} from '../sign-colors'
+import {
+  OutlinedText,
 } from '../svg-text'
 
 import type {
@@ -31,42 +37,41 @@ const CODE_Y = 22
 const CODE_WIDTH = 154
 const CODE_HEIGHT = 57
 
-interface OrdinaryRoadConfig {
+/** 各类普通公路编号牌用色板里的哪几种颜色。 */
+const ROAD_CONFIG: Record<OrdinaryRoadKind, {
   codePrefix: string
   label: string
-  border: string
-  fill: string
-  text: string
-}
-
-const ROAD_CONFIG: Record<OrdinaryRoadKind, OrdinaryRoadConfig> = {
+  border: SignColorKey
+  fill: SignColorKey
+  text: SignColorKey
+}> = {
   'ordinary-national': {
     codePrefix: 'G',
     label: '国道',
-    border: WHITE,
-    fill: RED,
-    text: WHITE,
+    border: 'white',
+    fill: 'red',
+    text: 'white',
   },
   'ordinary-provincial': {
     codePrefix: 'S',
     label: '省道',
-    border: BLACK,
-    fill: YELLOW,
-    text: BLACK,
+    border: 'black',
+    fill: 'yellow',
+    text: 'black',
   },
   'ordinary-county': {
     codePrefix: 'X',
     label: '县道',
-    border: BLACK,
-    fill: WHITE,
-    text: BLACK,
+    border: 'black',
+    fill: 'white',
+    text: 'black',
   },
   'ordinary-township': {
     codePrefix: 'Y',
     label: '乡道',
-    border: BLACK,
-    fill: WHITE,
-    text: BLACK,
+    border: 'black',
+    fill: 'white',
+    text: 'black',
   },
 }
 
@@ -91,7 +96,16 @@ interface OrdinaryRoadNodeProps {
 function OrdinaryRoadNode({
   kind, digits, fontLatin, x, y, width, height,
 }: OrdinaryRoadNodeProps) {
+  const {
+    resolve,
+  } = useSignColors()
   const config = ROAD_CONFIG[kind]
+  // 编号牌自己按「公路类别」取色，不跟外层标志的底色走。
+  const colors = {
+    border: resolve(config.border),
+    fill: resolve(config.fill),
+    text: resolve(config.text),
+  }
   const code = ordinaryRoadCode(kind, digits)
   {
     /*       <g transform={REFERENCE_PATH_TRANSFORM} opacity={0.45}>
@@ -119,7 +133,7 @@ function OrdinaryRoadNode({
         width={WIDTH}
         height={HEIGHT}
         rx={OUTER_RADIUS}
-        fill={config.fill}
+        fill={colors.fill}
         stroke="none"
         strokeMiterlimit={10}
       />
@@ -129,7 +143,7 @@ function OrdinaryRoadNode({
         width={MIDDLE_WIDTH}
         height={MIDDLE_HEIGHT}
         rx={MIDDLE_RADIUS}
-        fill={config.border}
+        fill={colors.border}
         stroke="none"
         strokeMiterlimit={10}
       />
@@ -139,7 +153,7 @@ function OrdinaryRoadNode({
         width={INNER_WIDTH}
         height={INNER_HEIGHT}
         rx={INNER_RADIUS}
-        fill={config.fill}
+        fill={colors.fill}
         stroke="none"
         strokeMiterlimit={10}
       />
@@ -151,7 +165,7 @@ function OrdinaryRoadNode({
         startY={CODE_Y}
         width={CODE_WIDTH}
         height={CODE_HEIGHT}
-        fill={config.text}
+        fill={colors.text}
         options={{
           maxGap: 13,
           minGap: 9,

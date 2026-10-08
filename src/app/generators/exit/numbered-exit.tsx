@@ -1,7 +1,10 @@
 import numberedExitTemplate from '@/generators/template/数字出口.svg'
 
 import {
-  GREEN, WHITE, OutlinedText, textLayout,
+  useSignColors,
+} from '../sign-colors'
+import {
+  OutlinedText, textLayout,
 } from '../svg-text'
 
 import type {
@@ -103,9 +106,14 @@ export function NumberedExitSignNode({
   x,
   y,
   width = NUMBERED_EXIT_WIDTH,
-  color = GREEN,
+  color,
   exitLabel = 'exit',
 }: NumberedExitSignNodeProps) {
+  const {
+    text: WHITE, resolve, applyTemplate,
+  } = useSignColors()
+  const green = resolve('green')
+  const boardColor = color ?? green
   const suffix = String(exitSuffix || '')
     .toUpperCase()
     .replace(/[^A-Z-]/g, '')
@@ -120,7 +128,10 @@ export function NumberedExitSignNode({
   const numberX = NUMBER_BOX_X + (NUMBER_BOX_WIDTH - contentWidth) / 2
   const numberY = 28 + (NUMBER_MAX_HEIGHT - numberParts.height) / 2
   const renderedHeight = width * NUMBERED_EXIT_HEIGHT / NUMBERED_EXIT_WIDTH
-  const coloredMarkup = color === GREEN ? baseMarkup : baseMarkup.replace(/#359b47/gi, color)
+  const markup = applyTemplate(baseMarkup)
+  const coloredMarkup = boardColor === green
+    ? markup
+    : markup.replace(new RegExp(green, 'gi'), boardColor)
 
   return (
     <svg x={x} y={y} width={width} height={renderedHeight} viewBox={VIEW_BOX} aria-hidden="true">
@@ -170,7 +181,7 @@ export function NumberedExitSignNode({
         startY={numberY}
         width={numberParts.numberWidth}
         height={numberParts.height}
-        fill={color}
+        fill={boardColor}
         options={{
           align: 'start',
           maxGap: numberParts.numberGap,
@@ -186,7 +197,7 @@ export function NumberedExitSignNode({
         startY={numberY + numberParts.height - numberParts.suffixHeight - 2}
         width={numberParts.suffixWidth}
         height={numberParts.suffixHeight}
-        fill={color}
+        fill={boardColor}
         options={{
           align: 'start',
           maxGap: numberParts.suffixGap,

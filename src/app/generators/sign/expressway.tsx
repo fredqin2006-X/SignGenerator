@@ -13,12 +13,9 @@ import {
   useFont,
 } from '../../fonts/FontContext'
 import {
-  BLACK,
-  GREEN,
-  RED,
-  WHITE,
-  YELLOW,
-  YELLOW_GREEN,
+  useTemplateColors,
+} from '../sign-colors'
+import {
   OutlinedText,
   Layout,
   textGap,
@@ -43,6 +40,9 @@ const CHINESE_TEXT_OPTIONS = {
 function ExpresswayBackground({
   width, withName, bannerColor,
 }: ExpresswayBackgroundProps) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useTemplateColors('expressway')
   const height = withName ? 1200 : 1000
   const x = withName ? 60 : 30
   const top = withName ? 60 : 30
@@ -137,6 +137,14 @@ interface ExpresswaySignNodeOptions {
 export function ExpresswaySignNode(
   options: ExpresswaySignNodeOptions & { inlineFourDigit?: boolean },
 ) {
+  const {
+    text: WHITE, resolve,
+  } = useTemplateColors('expressway')
+  // 编号牌上除了绿色牌身，还有红/黄/荧光黄绿的省名条。
+  const RED = resolve('red')
+  const YELLOW = resolve('yellow')
+  const YELLOW_GREEN = resolve('yellowGreen')
+  const BLACK = resolve('black')
   const inlineFourDigit = options.inlineFourDigit ?? false
   const parsedCode = parseCode(options.code)
   const sign = options.kind ? {

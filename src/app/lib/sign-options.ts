@@ -4,6 +4,23 @@ import type {
 
 export const DIRECTION_OPTIONS = ['东', '南', '西', '北'] satisfies string[]
 
+const DIRECTION_LETTERS: Record<string, string> = {
+  北: 'N',
+  东: 'E',
+  南: 'S',
+  西: 'W',
+}
+
+export const directionLetter = (direction: string) => DIRECTION_LETTERS[direction] ?? ''
+
+export const DIRECTION_LETTER_OPTIONS = DIRECTION_OPTIONS.map(direction => ({
+  value: direction,
+  label: `${direction} ${DIRECTION_LETTERS[direction]}`,
+})) satisfies {
+  value: string;
+  label: string
+}[]
+
 export const ENTRANCE_ARROW_DIRECTION_OPTIONS = [
   {
     value: 'front',

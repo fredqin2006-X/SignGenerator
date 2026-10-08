@@ -26,8 +26,9 @@ import {
   RouteSignNode,
 } from '../sign/route-sign'
 import {
-  GREEN,
-  WHITE,
+  useSignColors,
+} from '../sign-colors'
+import {
   escapeXml,
   OutlinedText,
   textLayout,
@@ -71,6 +72,9 @@ function DirectionPlate({
   x,
   y,
 }: DirectionPlateProps) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   return (
     <>
       <rect x={x} y={y} width={DIRECTION_PLATE_SIZE} height={DIRECTION_PLATE_SIZE} fill={WHITE} />
@@ -106,6 +110,9 @@ function DestinationLabel({
   text: string
   side: 'left' | 'right'
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const lines = splitDestination(text)
   const maxLineHeight = lines.length === 1 ? 70 : 52
   const lineHeight = Math.min(
@@ -140,6 +147,9 @@ function DestinationLabel({
 export function DualDirectionExitPreviewSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const leftDirection = cleanDirection(sign.leftDirection, '东')

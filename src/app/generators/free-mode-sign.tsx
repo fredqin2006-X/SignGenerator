@@ -15,7 +15,10 @@ import {
   RouteSignNode,
 } from './sign/route-sign'
 import {
-  OutlinedText, textLayout, WHITE,
+  useSignColors,
+} from './sign-colors'
+import {
+  OutlinedText, textLayout,
 } from './svg-text'
 
 const WIDTH = 1000
@@ -29,12 +32,6 @@ const CUSTOM_EXIT_HEIGHT = 86
 const ARROW_FOOTER_HEIGHT = 166
 const PRESET_ARROW_CENTER_OFFSET = 90
 const DIRECTION_PLATE_SIZE = 66
-
-const BOARD_COLORS = {
-  green: '#359b47',
-  blue: '#1769aa',
-  brown: '#8a5a36',
-} as const
 
 const VARIANT_ARROW: Partial<Record<FreeSignVariant, FreeArrowDirection>> = {
   'left-exit-down': 'left-down',
@@ -69,6 +66,9 @@ function FittedText({
   width: number
   height: number
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const safeText = supportedText(font, text)
   if (!safeText || width <= 0 || height <= 0) {return null}
 
@@ -132,6 +132,9 @@ function EvenlySpacedLine({
   width: number
   height: number
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const characters = Array.from(text)
   let fittedHeight = Math.max(6, Math.floor(height))
   for (; fittedHeight > 6; fittedHeight -= 1) {
@@ -304,6 +307,9 @@ function DistanceLabel({
   width: number
   height: number
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const number = value || '0'
   const numberHeight = 74
   const numberGap = 8
@@ -368,6 +374,9 @@ export function FreeModeSign({
   sign: Sign
   roadSignList: Sign[]
 }) {
+  const {
+    text: WHITE, resolve,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const config = sign.freeConfig
@@ -387,7 +396,7 @@ export function FreeModeSign({
     + arrowFooterHeight
   const height = boardY + boardHeight
   const rowsWidth = WIDTH - PADDING * 2
-  const boardColor = BOARD_COLORS[config.background]
+  const boardColor = resolve(config.background)
 
   return <svg
     xmlns="http://www.w3.org/2000/svg"
