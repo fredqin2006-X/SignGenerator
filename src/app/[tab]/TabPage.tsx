@@ -64,12 +64,13 @@ export default function TabPage({
   return (
     <>
       <Header activeTab={tabParam as WorkspaceTab} />
-      <main className="grid min-h-0 flex-1 grid-cols-[14rem_minmax(0,1fr)_20rem] max-lg:grid-cols-[12rem_minmax(0,1fr)] max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(17rem,42vh)_minmax(0,1fr)] max-md:overflow-hidden">
-        <div>
+      <main className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-[15rem_minmax(0,1fr)_20rem] overflow-hidden max-lg:grid-cols-[13rem_minmax(0,1fr)] max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(17rem,42vh)_minmax(0,1fr)]">
+        <div className="min-h-0 overflow-hidden">
           <SignList
             title={workspace.signListTitle}
             signs={workspace.visibleSigns}
             selectedId={workspace.selectedId}
+            roadSignList={workspace.ordinaryExitRoadSignList}
             onSelect={workspace.selectSign}
             onAdd={workspace.addSign}
             addChoices={workspace.addChoices}
@@ -82,7 +83,7 @@ export default function TabPage({
           sign={workspace.selectedSign}
           roadSignList={workspace.ordinaryExitRoadSignList}
         />
-        <div className="max-lg:col-span-2 max-lg:max-h-72 max-md:col-span-1 max-md:min-h-0 max-md:max-h-none max-md:overflow-hidden">
+        <div className="min-h-0 overflow-hidden max-lg:col-span-2 max-lg:max-h-72 max-md:col-span-1 max-md:max-h-none">
           {tabParam === 'free-mode' ? <FreeModeSettings
             sign={workspace.selectedSign}
             roadSignList={workspace.ordinaryExitRoadSignList}

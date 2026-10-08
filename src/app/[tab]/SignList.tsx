@@ -34,6 +34,9 @@ import {
   SignListDialogEditor, SignListPopoverEditor,
 } from './SignListEditor'
 import {
+  SignThumbnail,
+} from './SignThumbnail'
+import {
   deleteDialogTitle,
   isForkSign,
   signBadge,
@@ -51,6 +54,7 @@ interface SignListProps {
   title: string
   signs: Sign[]
   selectedId: string
+  roadSignList?: Sign[]
   onSelect: (id: string) => void
   onAdd: (template?: SignTemplate) => void
   addChoices?: AddChoice[]
@@ -65,6 +69,7 @@ export function SignList({
   title,
   signs,
   selectedId,
+  roadSignList,
   onSelect,
   onAdd,
   addChoices = [],
@@ -136,7 +141,7 @@ export function SignList({
   }
 
   return (
-    <aside className="h-full overflow-y-auto border-r bg-background max-md:max-h-29 max-md:overflow-hidden max-md:border-b max-md:border-r-0">
+    <aside className="h-full overflow-y-auto border-r bg-background max-md:max-h-40 max-md:overflow-hidden max-md:border-b max-md:border-r-0">
       <div className="p-3 max-md:py-2">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -209,12 +214,20 @@ export function SignList({
                 <button
                   type="button"
                   onClick={() => onSelect(sign.id)}
-                  className="flex w-full items-center gap-2 py-2.5 pl-3 pr-9 text-left sm:py-2 sm:pl-8"
+                  className="flex w-full items-center gap-2 py-2 pl-3 pr-9 text-left sm:pl-8 max-md:flex-col max-md:items-stretch max-md:gap-1.5 max-md:py-2.5"
                   title={isForkSign(sign) ? info.join('\n') : signTitle(sign)}
                 >
-                  <Badge variant={signBadgeVariant(sign)}>{signBadge(sign)}</Badge>
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                    {signTitle(sign)}
+                  <SignThumbnail sign={sign} roadSignList={roadSignList} />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate text-xs font-medium">
+                      {signTitle(sign)}
+                    </span>
+                    <Badge
+                      variant={signBadgeVariant(sign)}
+                      className="self-start max-md:hidden"
+                    >
+                      {signBadge(sign)}
+                    </Badge>
                   </span>
                 </button>
                 <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
