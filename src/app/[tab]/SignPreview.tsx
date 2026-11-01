@@ -84,6 +84,8 @@ export function SignPreview({
     sign.urbanRoadName,
     sign.urbanRoadStyle,
     sign.urbanRoadRouteSignId,
+    sign.urbanLeftDirection,
+    sign.urbanRightDirection,
     sign.urbanDirection,
     sign.urbanDestination,
     sign.exitDestination,

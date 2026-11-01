@@ -15,6 +15,9 @@ import {
   urbanExpresswayRoadNameNaturalSize,
 } from '../sign/urban-expressway-road-name'
 import {
+  useSignColors,
+} from '../sign-colors'
+import {
   OutlinedText,
 } from '../svg-text'
 
@@ -24,9 +27,6 @@ import type {
 
 const WIDTH = 1000
 const HEIGHT = 620
-const BLUE = '#2C64AD'
-const WHITE = '#FFFFFF'
-const RED = '#EE2525'
 
 interface DirectionArea {
   x: number
@@ -87,6 +87,9 @@ function DirectionContents({
   fontChinese: Font
   fontLatin: Font
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const rows: ContentRow[] = items.flatMap<ContentRow>((item) => {
     if (item.type === 'text') {
       return splitLongLine(item.text).map((text, index) => ({
@@ -149,6 +152,9 @@ function DirectionContents({
 function CenterRoadLabel({
   text, font,
 }: { text: string; font: Font }) {
+  const {
+    plate: BLUE, text: WHITE,
+  } = useSignColors()
   const lines = splitLongLine(text)
   const lineHeight = lines.length === 1 ? 62 : 38
   const gap = lines.length === 1 ? 0 : 8
@@ -185,6 +191,11 @@ function CenterRoadLabel({
 function Branch({
   direction, open,
 }: { direction: IntersectionDirection; open: boolean }) {
+  const {
+    text: WHITE, resolve,
+  } = useSignColors()
+  // 未开通方向上的红色警示块。
+  const RED = resolve('red')
   if (direction === 'straight') {
     return open
       ? <path d="M482 365V220h-37l55-65 55 65h-37v145z" fill={WHITE} />
@@ -216,6 +227,9 @@ export function IntersectionGuidanceSign({
   sign: Sign
   roadSignList: Sign[]
 }) {
+  const {
+    plate: BLUE, text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const directions = sign.intersectionConfig.directions

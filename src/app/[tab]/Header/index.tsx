@@ -4,6 +4,7 @@ import {
 
 import Link from 'next/link'
 
+import PaletteMenu from './PaletteMenu'
 import ThemeToggle from './ThemeToggle'
 import './Header.css'
 import TAB_TITLES from '../tab-meta.json'
@@ -50,7 +51,7 @@ export function Header({
           </h1>
           <span className="hidden text-xs text-muted-foreground sm:inline">Road Sign Generator</span>
         </div>
-        <div className="sm:hidden"><ThemeToggle /></div>
+        <div className="flex items-center gap-1 sm:hidden"><PaletteMenu /><ThemeToggle /></div>
       </div>
       <div className="flex w-full items-center border-t px-2 py-1 sm:w-auto sm:border-t-0 sm:px-0 sm:py-0">
         <div role="tablist" aria-label="生成器类型" className="flex min-w-0 flex-1 overflow-x-auto rounded-md bg-muted p-1 sm:flex-none">
@@ -64,7 +65,7 @@ export function Header({
             {TAB_TITLES[tab]}
           </Link>)}
         </div>
-        <div className="ml-2 hidden sm:block"><ThemeToggle /></div>
+        <div className="ml-2 hidden items-center gap-1 sm:flex"><PaletteMenu /><ThemeToggle /></div>
       </div>
     </header>
   )

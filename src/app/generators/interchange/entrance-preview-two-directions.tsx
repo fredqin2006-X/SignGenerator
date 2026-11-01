@@ -24,7 +24,10 @@ import {
   RouteSignNode,
 } from '../sign/route-sign'
 import {
-  GREEN, WHITE, escapeXml, OutlinedText,
+  useSignColors,
+} from '../sign-colors'
+import {
+  escapeXml, OutlinedText,
 } from '../svg-text'
 
 import type {
@@ -48,8 +51,9 @@ const DESTINATION_TEXT_OPTIONS = {
 
 function scaleArrow(template: string, centerX: number, centerY: number) {
   const transform = `translate(${centerX} ${centerY}) scale(${ARROW_SCALE}) translate(${-centerX} ${-centerY})`
+  // 模板里的白色就是 #ffffff（大小写不敏感地匹配）。
   return template.replace(
-    /(<path\b(?=[^>]*fill="#ffffff")[^>]*)(\/>)(?=<\/g><\/g><\/svg>)/,
+    /(<path\b(?=[^>]*fill="#ffffff")[^>]*)(\/>)(?=<\/g><\/g><\/svg>)/i,
     `$1 transform="${transform}"$2`,
   )
 }
@@ -102,6 +106,9 @@ interface DirectionPlateProps {
 function DirectionPlate({
   fontChinese, text, x, y, size = SINGLE_DIRECTION_PLATE_SIZE,
 }: DirectionPlateProps) {
+  const {
+    plate: GREEN, text: WHITE,
+  } = useSignColors()
   const padding = size * 3 / 22
   return (
     <>
@@ -132,6 +139,9 @@ function FrontEntranceFooter({
   distanceVisible: boolean
   distanceUnit: Sign['entranceDistanceUnit']
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   if (!distanceVisible) {
     return <OutlinedText
       font={fontChinese}
@@ -194,6 +204,9 @@ function FrontEntranceFooter({
 export function EntrancePreviewTwoDirectionsSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const arrowDirection = cleanEntranceArrowDirection(sign.entranceArrowDirection)

@@ -21,13 +21,6 @@ interface FontkitModule {
 }
 let fontkitPromise: Promise<{ default: FontkitModule }> | undefined
 
-export const GREEN = '#359b47'
-export const RED = '#ee2d2d'
-export const WHITE = '#FFFFFF'
-export const YELLOW = '#f4eb35'
-export const YELLOW_GREEN = '#ccff33'
-export const BLACK = '#000000'
-
 const XML_ESCAPES: Record<string, string> = {
   '<': '&lt;',
   '>': '&gt;',

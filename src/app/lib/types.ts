@@ -48,6 +48,9 @@ export type UrbanRoadStyle =
   | 'plain'
   | 'right-chevron'
   | 'bidirectional'
+  | 'bidirectional-hexagon'
+  | 'unidirectional-hexagon'
+  | 'straight-direction'
   | 'straight-text'
   | 'straight-route'
 export type IntersectionDirection = 'left' | 'straight' | 'right'
@@ -192,6 +195,8 @@ export interface Sign {
   urbanRoadName: string
   urbanRoadStyle: UrbanRoadStyle
   urbanRoadRouteSignId: string
+  urbanLeftDirection: string
+  urbanRightDirection: string
   urbanDirection: string
   urbanDestination: string
   urbanExitDirectionVisible: boolean

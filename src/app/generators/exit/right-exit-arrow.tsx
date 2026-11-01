@@ -1,6 +1,6 @@
 import {
-  WHITE,
-} from '../svg-text'
+  useSignColors,
+} from '../sign-colors'
 
 const RIGHT_EXIT_ARROW_PATH = [
   'M286.285,291.045l0.93,-17.64c0.012,-0.24062 -0.13084,-0.46208 ',
@@ -29,6 +29,9 @@ export function RightExitArrow({
   y,
   scale = 1.45,
 }: { x: number; y: number; scale?: number }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   return (
     <path
       d={RIGHT_EXIT_ARROW_PATH}
@@ -49,6 +52,9 @@ export function ExitDirectionArrow({
   y: number
   scale?: number
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   if (direction === 'front') {
     return <path
       d={FRONT_ARROW_PATH}

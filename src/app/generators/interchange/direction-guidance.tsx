@@ -16,7 +16,10 @@ import {
   RouteSignNode,
 } from '../sign/route-sign'
 import {
-  GREEN, escapeXml, OutlinedText,
+  useSignColors,
+} from '../sign-colors'
+import {
+  escapeXml, OutlinedText,
 } from '../svg-text'
 
 const TEMPLATE_WIDTH = 200.07
@@ -27,6 +30,9 @@ const ROUTE_SIGN_Y = 100
 export function DirectionGuidanceSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    plate: GREEN,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const leftDirection = cleanDirection(sign.leftDirection, '东')

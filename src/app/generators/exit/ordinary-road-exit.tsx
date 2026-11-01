@@ -19,11 +19,13 @@ import {
   escapeXml,
   OutlinedText,
   textLayout,
-  WHITE,
 } from '../svg-text'
 import {
   ExitDirectionArrow,
 } from './right-exit-arrow'
+import {
+  useSignColors,
+} from '../sign-colors'
 
 const WIDTH = 520
 const HEIGHT = 640
@@ -36,8 +38,6 @@ const DESTINATION_TOP = BOARD_Y + 130
 const DESTINATION_HEIGHT = 140
 const DESTINATION_LINE_GAP = 10
 const DESTINATION_MAX_TEXT_HEIGHT = 76
-const GREEN = '#359b47'
-const BLUE = '#0B43B8'
 
 function destinationLines(text: string) {
   const characters = Array.from(text)
@@ -70,6 +70,9 @@ function DestinationLabel({
   font,
   text,
 }: { font: ReturnType<typeof useFont>; text: string }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const lines = destinationLines(text)
   const height = fitDestinationHeight(font, text)
   const blockHeight = lines.length * height
@@ -98,14 +101,19 @@ function DestinationLabel({
 export function OrdinaryRoadExitSign({
   sign,
 }: { sign: Sign }) {
+  const {
+    resolve, applyTemplate,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const textMode = sign.ordinaryExitContentMode === 'text'
-  const background = sign.ordinaryExitBackground === 'blue' ? BLUE : GREEN
+  // 模板的牌身是绿色，按设置换成蓝或绿（都取自色板）。
+  const background = resolve(sign.ordinaryExitBackground)
   const destination = cleanExitText(sign.exitName, '宝杨路', 12)
   const contentLabel = textMode ? destination : sign.code
   const label = escapeXml(`${contentLabel} 普通道路出口`)
-  const template = ordinaryRoadExitTemplate.replaceAll(GREEN, background)
+  const template = applyTemplate(ordinaryRoadExitTemplate)
+    .replace(new RegExp(resolve('green'), 'gi'), background)
 
   return (
     <RawSvg

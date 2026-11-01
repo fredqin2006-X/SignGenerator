@@ -3,6 +3,9 @@ import type {
 } from '@/lib/types'
 
 import {
+  useSignColors,
+} from './sign-colors'
+import {
   useFont,
 } from '../fonts/FontContext'
 import {
@@ -30,13 +33,6 @@ const HORIZONTAL_PADDING = 54
 const VERTICAL_PADDING = 42
 const TEXT_AREA_WIDTH = 590
 const DISTANCE_X = 672
-const WHITE = '#FFFFFF'
-const BACKGROUND_COLORS = {
-  green: '#299B48',
-  blue: '#2C64AD',
-  brown: '#8A5A32',
-} as const
-
 function roadSignWidth(sign: Sign, height: number, fontChinese: Font) {
   if (sign.template === 'ordinary-road') { return height * 213.51 / 102.59 }
   if (sign.template === 'urban-expressway-road-name') {
@@ -115,6 +111,9 @@ function DestinationContent({
   y: number
   rowHeight: number
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const englishVisible = item.englishEnabled && Boolean(item.english.trim())
   const mainHeight = englishVisible ? rowHeight * 0.6 : rowHeight
   const selected = item.type === 'road-sign'
@@ -170,6 +169,9 @@ function DistanceContent({
   y: number
   rowHeight: number
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const numberHeight = Math.min(104, rowHeight * 0.72)
   const unitHeight = numberHeight * 0.48
   const numberWidth = 174
@@ -214,6 +216,9 @@ export function DestinationDistanceSign({
   sign: Sign
   roadSignList: Sign[]
 }) {
+  const {
+    text: WHITE, resolve,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const config = sign.destinationDistanceConfig
@@ -221,7 +226,7 @@ export function DestinationDistanceSign({
     item => item.englishEnabled && item.english.trim() ? 178 : 142,
   )
   const height = VERTICAL_PADDING * 2 + rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0)
-  const background = BACKGROUND_COLORS[config.background]
+  const background = resolve(config.background)
 
   return <svg
     xmlns="http://www.w3.org/2000/svg"

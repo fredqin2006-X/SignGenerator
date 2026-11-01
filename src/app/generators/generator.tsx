@@ -61,6 +61,9 @@ import {
 import {
   UrbanRoadNameSign,
 } from './sign/urban-road-name'
+import {
+  SignColorScope,
+} from './sign-colors'
 
 function SignSvgContent(sign: Sign, roadSignList: Sign[] = []) {
   switch (sign.template) {
@@ -102,6 +105,8 @@ function SignSvgContent(sign: Sign, roadSignList: Sign[] = []) {
       return <UrbanRoadNameSign
         name={sign.urbanRoadName}
         style={sign.urbanRoadStyle}
+        leftDirection={sign.urbanLeftDirection}
+        rightDirection={sign.urbanRightDirection}
         routeSign={roadSignList.find(item => item.id === sign.urbanRoadRouteSignId)}
       />
     default:
@@ -120,7 +125,10 @@ function SignSvgContent(sign: Sign, roadSignList: Sign[] = []) {
 export function SignSvg({
   sign, roadSignList = [],
 }: { sign: Sign; roadSignList?: Sign[] }) {
-  return SignSvgContent(sign, roadSignList)
+  // 全局色板：所有生成器都从这里取底色 / 文字 / 边框。
+  return <SignColorScope sign={sign}>
+    {SignSvgContent(sign, roadSignList)}
+  </SignColorScope>
 }
 
 export function signFilename(sign: Sign) {

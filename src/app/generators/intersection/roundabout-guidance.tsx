@@ -18,15 +18,15 @@ import {
   UrbanRoadNameSign,
 } from '../sign/urban-road-name'
 import {
+  useSignColors,
+} from '../sign-colors'
+import {
   OutlinedText,
 } from '../svg-text'
 
 import type {
   Font,
 } from '@pdf-lib/fontkit'
-
-const BLUE = '#2C64AD'
-const WHITE = '#FFFFFF'
 
 const ROAD_WIDTHS: Record<RoundaboutRoadClass, number> = {
   major: 54,
@@ -216,6 +216,9 @@ function ExitLabel({
   area: LabelArea
   layout: CanvasLayout
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const exit = sign.roundaboutConfig.exits[direction]
   const selected = roadSignList.find(candidate => candidate.id === exit.roadSignId)
   const hasRoadSign = Boolean(selected)
@@ -379,6 +382,9 @@ function Branch({
   roadClass: RoundaboutRoadClass
   layout: CanvasLayout
 }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const radians = exitAngle(direction, layout) * Math.PI / 180
   const dx = Math.cos(radians)
   const dy = Math.sin(radians)
@@ -415,6 +421,9 @@ export function RoundaboutGuidanceSign({
   sign: Sign
   roadSignList: Sign[]
 }) {
+  const {
+    plate: BLUE, text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const config = sign.roundaboutConfig

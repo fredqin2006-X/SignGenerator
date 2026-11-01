@@ -15,6 +15,9 @@ import {
   urbanExpresswayRoadNameNaturalSize,
 } from '../sign/urban-expressway-road-name'
 import {
+  useSignColors,
+} from '../sign-colors'
+import {
   OutlinedText,
 } from '../svg-text'
 
@@ -22,12 +25,12 @@ import type {
   Font,
 } from '@pdf-lib/fontkit'
 
-const BLUE = '#2864B7'
-const WHITE = '#FFFFFF'
-
 function HorizontalText({
   text, x, y, width, height, font,
 }: { text: string; x: number; y: number; width: number; height: number; font: Font }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   if (!text) { return null }
   return <OutlinedText
     font={font}
@@ -46,6 +49,9 @@ function HorizontalText({
 function VerticalText({
   text, x, y, maxHeight, font, size = 53,
 }: { text: string; x: number; y: number; maxHeight: number; font: Font; size?: number }) {
+  const {
+    text: WHITE,
+  } = useSignColors()
   const chars = Array.from(text)
   if (!chars.length) { return null }
   const step = Math.min(size + 4, maxHeight / chars.length)
@@ -140,6 +146,11 @@ function DirectionItems({
   fontChinese: Font
   fontLatin: Font
 }) {
+  const {
+    text: WHITE, resolve,
+  } = useSignColors()
+  // 高亮条用的是比底色稍深的那版绿色。
+  const HIGHLIGHT = resolve('green')
   const active = items.flatMap((item) => {
     const roadSign = item.type === 'road-sign'
       ? roadSignList.find(sign => sign.id === item.roadSignId)
@@ -202,7 +213,7 @@ function DirectionItems({
         })() : <>
           {item.highlighted && <rect
             x={x + 2} y={labelY - 2} width={width - 4} height={labelHeight + 4}
-            fill="#148050" stroke={WHITE} strokeWidth="2"
+            fill={HIGHLIGHT} stroke={WHITE} strokeWidth="2"
           />}
           <HorizontalText
             text={item.text} x={x + 8} y={labelY} width={width - 16}
@@ -221,6 +232,9 @@ function DirectionItems({
 export function CrossroadsGuidanceSign({
   sign, roadSignList,
 }: { sign: Sign; roadSignList: Sign[] }) {
+  const {
+    plate: BLUE, text: WHITE,
+  } = useSignColors()
   const fontChinese = useFont('han')
   const fontLatin = useFont('b')
   const config = sign.crossroadsConfig
