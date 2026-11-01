@@ -304,7 +304,8 @@ export function SignPreview({
     applyView(INITIAL_VIEW)
   }
   function download() {
-    const svgElement = document.querySelector('svg[role=img]')
+    // Search only the preview: the sign list also renders thumbnails as svg[role=img].
+    const svgElement = contentRef.current?.querySelector('svg[role=img]')
     if (!svgElement) {return}
     const svgString = svgElement.outerHTML
     const blob = new Blob([svgString], {

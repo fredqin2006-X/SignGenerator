@@ -6,11 +6,14 @@ import {
   balancedLines, CellText, cellTextWidth, measureStack, StackBlock, type StackRow,
 } from './label-stack'
 import {
-  BADGE_SIZE, BLUE, CardinalBadge, FRAME_INNER, RED, SignFrame, WHITE,
+  BADGE_SIZE, CardinalBadge, FRAME_INNER, SignFrame,
 } from './sign-frame'
 import {
   useFont,
 } from '../../fonts/FontContext'
+import {
+  useSignColors,
+} from '../sign-colors'
 
 import type {
   Font,
@@ -89,18 +92,21 @@ function Branch({
   const barHalf = SHAFT_HALF * U * 0.9
   // A closed branch keeps the shaft and ends in a red bar where the head would be.
   const barCenter = (tip + cut) / 2
+  const {
+    text, resolve,
+  } = useSignColors()
   return <g transform={`rotate(${BRANCH_ROTATION[direction]})`}>
     {open
       ? <path
         d={`M${-s} ${-start * U}V${notch}L${-HEAD_HALF * U} ${cut}V${shoulder}L0 ${tip}`
           + `L${HEAD_HALF * U} ${shoulder}V${cut}L${s} ${notch}V${-start * U}z`}
-        fill={WHITE}
+        fill={text}
       />
       : <>
-        <rect x={-s} y={barCenter} width={s * 2} height={-start * U - barCenter} fill={WHITE} />
+        <rect x={-s} y={barCenter} width={s * 2} height={-start * U - barCenter} fill={text} />
         <rect
           x={-HEAD_HALF * U} y={barCenter - barHalf} width={HEAD_HALF * U * 2}
-          height={barHalf * 2} rx={U * 0.04} fill={RED}
+          height={barHalf * 2} rx={U * 0.04} fill={resolve('red')}
         />
       </>}
   </g>
@@ -130,9 +136,12 @@ function CenterLabel({
   } = centerLines(name)
   const half = Math.max(...lines.map(line => cellTextWidth(line, cell))) / 2 + HEX_PADDING
   const total = lines.length * cell + (lines.length - 1) * CENTER_LINE_GAP
+  const {
+    plate, text,
+  } = useSignColors()
   return <g aria-label={name}>
-    <path d={hexagonPath(half, 0)} fill={WHITE} />
-    <path d={hexagonPath(half, HEX_STROKE)} fill={BLUE} />
+    <path d={hexagonPath(half, 0)} fill={text} />
+    <path d={hexagonPath(half, HEX_STROKE)} fill={plate} />
     {lines.map((line, index) => <CellText
       key={`${index}-${line}`}
       text={line}
@@ -163,6 +172,7 @@ export function IntersectionGuidanceSign({
 }) {
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
+  const colors = useSignColors()
   const {
     directions, cardinalDirection,
   } = sign.intersectionConfig
@@ -230,7 +240,7 @@ export function IntersectionGuidanceSign({
     <g transform={`translate(${cx * U} ${axis * U})`}>
       <rect
         x={-SHAFT_HALF * U} y={0} width={SHAFT_HALF * 2 * U} height={stubLength * U}
-        fill={WHITE}
+        fill={colors.text}
       />
       <Branch direction="left" open={rows.left.length > 0} start={0} reach={sideReach} />
       <Branch direction="right" open={rows.right.length > 0} start={0} reach={sideReach} />

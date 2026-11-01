@@ -3,9 +3,6 @@ import type {
 } from '@/lib/types'
 
 import {
-  WHITE,
-} from './sign-frame'
-import {
   expresswaySignNaturalSize,
 } from '../sign/expressway'
 import {
@@ -15,8 +12,11 @@ import {
   urbanExpresswayRoadNameNaturalSize,
 } from '../sign/urban-expressway-road-name'
 import {
-  UrbanRoadNameSign,
+  UrbanRoadNameSign, urbanRoadNameNaturalSize,
 } from '../sign/urban-road-name'
+import {
+  useSignColors,
+} from '../sign-colors'
 import {
   OutlinedText,
 } from '../svg-text'
@@ -41,8 +41,11 @@ export function cellTextWidth(text: string, cell: number) {
 }
 
 export function CellText({
-  text, x, y, cell, font, fill = WHITE,
+  text, x, y, cell, font, fill,
 }: { text: string; x: number; y: number; cell: number; font: Font; fill?: string }) {
+  const {
+    text: textColor,
+  } = useSignColors()
   const chars = Array.from(text)
   const pitch = cell * (1 + CELL_GAP)
   const ink = cell * INK_SHARE
@@ -56,7 +59,7 @@ export function CellText({
       startY={y + (cell - ink) / 2}
       width={cell * (1 + CELL_GAP)}
       height={ink}
-      fill={fill}
+      fill={fill ?? textColor}
       options={{
         align: 'center',
         scaleMode: 'reference',
@@ -92,8 +95,11 @@ function shieldAspect(sign: Sign, font: Font) {
   switch (sign.template) {
     case 'ordinary-road':
       return 213.51 / 102.59
-    case 'urban-road-name':
-      return 760 / 300
+    case 'urban-road-name': {
+      // Width depends on the name and style since the city-road sign redesign.
+      const size = urbanRoadNameNaturalSize(font, sign.urbanRoadName, sign.urbanRoadStyle)
+      return size.width / size.height
+    }
     case 'urban-expressway-road-name': {
       const size = urbanExpresswayRoadNameNaturalSize(font, sign.urbanRoadName)
       return size.width / size.height
@@ -116,6 +122,8 @@ function Shield({
       name={sign.urbanRoadName}
       style={sign.urbanRoadStyle}
       routeSign={roadSignList.find(candidate => candidate.id === sign.urbanRoadRouteSignId)}
+      leftDirection={sign.urbanLeftDirection}
+      rightDirection={sign.urbanRightDirection}
       x={x} y={y} width={width} height={height}
     />
   }

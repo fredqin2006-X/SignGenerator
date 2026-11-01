@@ -6,11 +6,14 @@ import {
   balancedLines, measureStack, StackBlock, type MeasuredStack, type StackRow,
 } from './label-stack'
 import {
-  BADGE_SIZE, BLUE, CardinalBadge, FRAME_INNER, SignFrame, WHITE,
+  BADGE_SIZE, CardinalBadge, FRAME_INNER, SignFrame,
 } from './sign-frame'
 import {
   useFont,
 } from '../../fonts/FontContext'
+import {
+  useSignColors,
+} from '../sign-colors'
 
 // Viewbox units per h (character height). All geometry below is in h and comes
 // from GB 5768.2-2022 drawing E.168 (路2): a 9h x 7.7h board, junction centre
@@ -404,6 +407,7 @@ export function RoundaboutGuidanceSign({
 }) {
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
+  const colors = useSignColors()
   const config = sign.roundaboutConfig
   const directions = (Object.keys(config.exits) as RoundaboutDirection[])
     .filter(direction => config.exits[direction].enabled)
@@ -463,7 +467,7 @@ export function RoundaboutGuidanceSign({
     <SignFrame width={layout.width * U} height={layout.height * U} unit={U} />
     <g transform={translate}>
       <path
-        fill={WHITE}
+        fill={colors.text}
         d={unionPath([
           armPolygon(radians(approach.angle), approach.reach, approach.half, false),
           ...arms.map(arm => armPolygon(radians(arm.angle), arm.reach, arm.half, true)),
@@ -473,7 +477,7 @@ export function RoundaboutGuidanceSign({
         ])}
       />
       <path
-        fill={BLUE}
+        fill={colors.plate}
         d={unionPath([circlePoints(RING_INNER), slitPolygon(approachHalf)])}
       />
     </g>
