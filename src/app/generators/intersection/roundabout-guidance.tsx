@@ -41,6 +41,8 @@ const LAYOUTS: Record<RoundaboutConfig['layout'], Layout> = {
 const RING_OUTER = 0.8
 const RING_INNER = 0.4
 const FILLET = 0.4
+// Hidden inner edge of each fillet shape, inside the white ring band.
+const OVERLAP_RADIUS = 0.65
 // Half widths. 编号集散道路 matches the 0.4h arms of E.168.
 const ARM_HALF: Record<RoundaboutRoadClass, number> = {
   major: 0.25,
@@ -79,6 +81,27 @@ type Point = [number, number]
 const radians = (degrees: number) => degrees * Math.PI / 180
 const toPath = (points: Point[]) =>
   `M${points.map(([x, y]) => `${(x * U).toFixed(2)} ${(y * U).toFixed(2)}`).join('L')}z`
+
+// Clockwise on screen (positive shoelace area in y-down coordinates).
+function clockwise(points: Point[]) {
+  const area = points.reduce((total, [x, y], index) => {
+    const [nx, ny] = points[(index + 1) % points.length]
+    return total + x * ny - nx * y
+  }, 0)
+  return area < 0 ? [...points].reverse() : points
+}
+
+// Several shapes drawn as one path with the same winding. Drawn separately,
+// shapes that share an edge are each anti-aliased there and the background
+// shows through as a hairline; in one nonzero path the shared edges cancel.
+const unionPath = (shapes: Point[][]) => shapes.map(shape => toPath(clockwise(shape))).join('')
+
+const circlePoints = (radius: number, steps = 120): Point[] => Array.from({
+  length: steps,
+}, (_, index) => {
+  const angle = index / steps * Math.PI * 2
+  return [Math.cos(angle) * radius, Math.sin(angle) * radius]
+})
 
 // Points along the shorter arc from angle `from` to `to` around `center`.
 function arc(center: Point, radius: number, from: number, to: number, steps = 10): Point[] {
@@ -127,21 +150,31 @@ function filletPolygon(angle: number, half: number, side: 1 | -1): Point[] {
   const p1: Point = [d[0] * along + n[0] * half * side, d[1] * along + n[1] * half * side]
   const scale = RING_OUTER / (RING_OUTER + FILLET)
   const p2: Point = [center[0] * scale, center[1] * scale]
-  const meet = Math.sqrt(RING_OUTER ** 2 - half ** 2)
-  const q: Point = [d[0] * meet + n[0] * half * side, d[1] * meet + n[1] * half * side]
   const a1 = Math.atan2(p1[1] - center[1], p1[0] - center[0])
   const a2 = Math.atan2(p2[1] - center[1], p2[0] - center[0])
+  // Only the fillet arc is a visible edge. The rest of the outline runs well
+  // inside the arm (offset 0.4·half from its axis) and inside the ring
+  // (radius OVERLAP_RADIUS), so the fillet overlaps both instead of meeting
+  // them on a shared line, which would show as a hairline.
+  const inner = half * 0.4 * side
+  const pIn: Point = [d[0] * along + n[0] * inner, d[1] * along + n[1] * inner]
+  const p2In: Point = [p2[0] * OVERLAP_RADIUS / RING_OUTER, p2[1] * OVERLAP_RADIUS / RING_OUTER]
+  const meetIn = Math.sqrt(OVERLAP_RADIUS ** 2 - inner ** 2)
+  const qIn: Point = [d[0] * meetIn + n[0] * inner, d[1] * meetIn + n[1] * inner]
   return [
-    q, p1,
-    ...arc(center, FILLET, a1, a2),
-    ...arc([0, 0], RING_OUTER, Math.atan2(p2[1], p2[0]), Math.atan2(q[1], q[0]), 6),
+    pIn, p1,
+    ...arc(center, FILLET, a1, a2, 16),
+    p2In,
+    ...arc([0, 0], OVERLAP_RADIUS, Math.atan2(p2In[1], p2In[0]), Math.atan2(qIn[1], qIn[0]), 8),
   ]
 }
 
 // The blue slit through the ring left of the approach (E.168), which shows the
 // direction of circulation. Points are relative to the junction centre.
 function slitPolygon(approachHalf: number): Point[] {
-  const base: Point[] = [[-0.24, 0.33], [-0.73, 0.75], [-0.42, 0.95], [-0.06, 0.4]]
+  // The inner end reaches well into the blue island (radius 0.4h) so the two
+  // blue shapes overlap instead of meeting on an edge.
+  const base: Point[] = [[-0.17, 0.27], [-0.73, 0.75], [-0.42, 0.95], [-0.01, 0.31]]
   // Rotate clockwise for a wider approach so the slit stays clear of it.
   const extra = Math.max(0, approachHalf - ARM_HALF.numbered)
   const turn = Math.asin(Math.min(1, extra / RING_OUTER))
@@ -428,19 +461,21 @@ export function RoundaboutGuidanceSign({
     aria-label="环岛图形式交叉路口预告标志"
   >
     <SignFrame width={layout.width * U} height={layout.height * U} unit={U} />
-    <g transform={translate} fill={WHITE}>
-      <path d={toPath(armPolygon(radians(approach.angle), approach.reach, approach.half, false))} />
-      {arms.map(arm => <path
-        key={arm.direction}
-        d={toPath(armPolygon(radians(arm.angle), arm.reach, arm.half, true))}
-      />)}
-      {[...arms, approach].flatMap(arm => ([1, -1] as const).map(side => <path
-        key={`${arm.angle}-${side}`}
-        d={toPath(filletPolygon(radians(arm.angle), arm.half, side))}
-      />))}
-      <circle r={RING_OUTER * U} />
-      <circle r={RING_INNER * U} fill={BLUE} />
-      <path d={toPath(slitPolygon(approachHalf))} fill={BLUE} />
+    <g transform={translate}>
+      <path
+        fill={WHITE}
+        d={unionPath([
+          armPolygon(radians(approach.angle), approach.reach, approach.half, false),
+          ...arms.map(arm => armPolygon(radians(arm.angle), arm.reach, arm.half, true)),
+          ...[...arms, approach].flatMap(arm => ([1, -1] as const)
+            .map(side => filletPolygon(radians(arm.angle), arm.half, side))),
+          circlePoints(RING_OUTER),
+        ])}
+      />
+      <path
+        fill={BLUE}
+        d={unionPath([circlePoints(RING_INNER), slitPolygon(approachHalf)])}
+      />
     </g>
     {labels.map(label => <g
       key={label.direction}
