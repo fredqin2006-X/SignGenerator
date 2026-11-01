@@ -24,12 +24,27 @@ import type {
   Sign,
 } from '@/lib/types'
 
-const MIN_SCALE = 0.4
-const MAX_SCALE = 3
+const MIN_SCALE = 0.2
+const MAX_SCALE = 8
+// Wheel delta (px) -> zoom factor. One mouse-wheel notch (~100px, clamped to 50) is about 13%.
+const WHEEL_ZOOM_SPEED = 0.0025
+const WHEEL_DELTA_LIMIT = 50
 
 interface Offset {
     x: number
     y: number
+}
+
+interface View {
+    scale: number
+    x: number
+    y: number
+}
+
+const INITIAL_VIEW: View = {
+  scale: 1,
+  x: 0,
+  y: 0,
 }
 
 interface BoardPosition {
@@ -48,11 +63,11 @@ export function SignPreview({
   sign,
   roadSignList = [],
 }: { sign: Sign; roadSignList?: Sign[] }) {
-  const [scale, setScale] = useState(1)
-  const [offset, setOffset] = useState<Offset>({
-    x: 0,
-    y: 0,
-  })
+  // `view` drives rendering; `viewRef` always holds the latest value so that
+  // rapid wheel/pointer events compute from the newest view, not a stale render.
+  const [view, setView] = useState<View>(INITIAL_VIEW)
+  const viewRef = useRef<View>(INITIAL_VIEW)
+  const contentRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [showPosition, setShowPosition] = useState(false)
   const [showPixelMeasure, setShowPixelMeasure] = useState(false)
@@ -101,26 +116,54 @@ export function SignPreview({
     roadSignList.map(roadSign => `${roadSign.id}:${roadSign.code}:${roadSign.name}:${roadSign.urbanRoadName}`).join(','),
   ].join('|')
 
-  const zoom = useCallback(
-    (multiplier: number) => setScale(
-      current => Math.min(MAX_SCALE, Math.max(MIN_SCALE, current * multiplier)),
-    ),
-    [],
-  )
+  const applyView = useCallback((next: View) => {
+    viewRef.current = next
+    setView(next)
+  }, [])
+
+  // Zoom so that the preview-local point (anchorX, anchorY) stays fixed on screen.
+  // When no anchor is given, zoom around the centre of the preview area.
+  const zoomAt = useCallback((multiplier: number, anchorX?: number, anchorY?: number) => {
+    const preview = previewRef.current
+    const content = contentRef.current
+    if (!preview || !content) {return}
+    const current = viewRef.current
+    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, current.scale * multiplier))
+    if (scale === current.scale) {return}
+    const ax = anchorX ?? preview.clientWidth / 2
+    const ay = anchorY ?? preview.clientHeight / 2
+    // offset* ignores CSS transforms, so this is the untransformed layout centre.
+    // With transform-origin at that centre: screen = centre + translate + (p - centre) * scale.
+    const cx = content.offsetLeft + content.offsetWidth / 2
+    const cy = content.offsetTop + content.offsetHeight / 2
+    const ratio = scale / current.scale
+    applyView({
+      scale,
+      x: (ax - cx) * (1 - ratio) + current.x * ratio,
+      y: (ay - cy) * (1 - ratio) + current.y * ratio,
+    })
+  }, [applyView])
 
   useEffect(() => {
     const preview = previewRef.current
     if (!preview) {return}
     const handleWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey) {return}
       event.preventDefault()
-      zoom(event.deltaY < 0 ? 1.1 : 0.9)
+      // Normalise line/page deltas (Firefox) to pixels.
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? preview.clientHeight : 1
+      const delta = Math.max(-WHEEL_DELTA_LIMIT, Math.min(WHEEL_DELTA_LIMIT, event.deltaY * unit))
+      const rect = preview.getBoundingClientRect()
+      zoomAt(
+        Math.exp(-delta * WHEEL_ZOOM_SPEED),
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      )
     }
     preview.addEventListener('wheel', handleWheel, {
       passive: false,
     })
     return () => preview.removeEventListener('wheel', handleWheel)
-  }, [zoom])
+  }, [zoomAt])
 
   useEffect(() => {
     const eventName = 'sign-preview-position-toggle'
@@ -258,11 +301,7 @@ export function SignPreview({
   }
 
   function reset() {
-    setScale(1)
-    setOffset({
-      x: 0,
-      y: 0,
-    })
+    applyView(INITIAL_VIEW)
   }
   function download() {
     const svgElement = document.querySelector('svg[role=img]')
@@ -279,10 +318,11 @@ export function SignPreview({
     setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
+  // Left button pans (or measures when the pixel measurer is on); middle button always pans.
   function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) {return}
+    if (event.button !== 0 && event.button !== 1) {return}
     event.preventDefault()
-    if (showPixelMeasure) {
+    if (showPixelMeasure && event.button === 0) {
       const point = measurePointFromEvent(event)
       if (!point) {return}
       measuring.current = true
@@ -322,10 +362,14 @@ export function SignPreview({
       return
     }
     if (!dragging.current) {return}
-    setOffset(current => ({
+    // Compute the delta now: a functional setState updater would run after
+    // lastPosition is overwritten below and always see a zero delta.
+    const current = viewRef.current
+    applyView({
+      ...current,
       x: current.x + event.clientX - lastPosition.current.x,
       y: current.y + event.clientY - lastPosition.current.y,
-    }))
+    })
     lastPosition.current = {
       x: event.clientX,
       y: event.clientY,
@@ -358,19 +402,19 @@ export function SignPreview({
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => zoom(0.8)}
+            onClick={() => zoomAt(0.8)}
             title="缩小"
           >
             <ZoomOut className="size-3.5" />
           </Button>
           <output className="w-11 text-center text-xs tabular-nums text-muted-foreground">
-            {Math.round(scale * 100)}%
+            {Math.round(view.scale * 100)}%
           </output>
           <Button
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => zoom(1.25)}
+            onClick={() => zoomAt(1.25)}
             title="放大"
           >
             <ZoomIn className="size-3.5" />
@@ -391,6 +435,10 @@ export function SignPreview({
           backgroundSize: '16px 16px',
         }}
         onPointerDownCapture={startDrag}
+        onMouseDown={(event) => {
+          // Stop the browser's middle-click autoscroll so the middle button can pan.
+          if (event.button === 1) {event.preventDefault()}
+        }}
         onPointerMove={moveDrag}
         onPointerLeave={() => setBoardPosition(null)}
         onPointerUp={endDrag}
@@ -417,9 +465,10 @@ export function SignPreview({
         }
         <SignErrorBoundary key={previewResetKey}>
           <div
+            ref={contentRef}
             className="min-w-0 w-full max-w-137.5 [&_svg]:block [&_svg]:h-auto [&_svg]:w-full drop-shadow-[0_10px_20px_rgba(15,23,42,0.18)]"
             style={{
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+              transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
             }}
           >
             <SignSvg sign={sign} roadSignList={roadSignList} />
