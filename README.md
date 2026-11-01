@@ -24,7 +24,7 @@ node server.mjs --open
 corepack pnpm dev
 ```
 
-Windows 用户也可以使用仓库中的“重新构建.bat”生成离线文件，再双击“一键启动.bat”。完整使用说明见 [简体中文教程](./运行前阅读/zh_CN/README.md)。
+Windows 用户也可以使用仓库中的“重新构建.bat”生成离线文件，再双击“一键启动.bat”。完整使用说明见 [简体中文教程](./运行前阅读/zh_CN/README.md)。代码结构、新增模板和发布流程见 [维护指南](./MAINTENANCE.md)。
 ## 离线发行包
 
 如果要让非开发者下载后直接使用，建议在 GitHub 的 **Releases** 中上传完整离线压缩包（至少包含 `out/`、`server.mjs` 和“一键启动.bat”）。`out/` 是构建产物，源码仓库默认不提交它。
