@@ -1,7 +1,10 @@
 import type {
-  RoundaboutDirection, RoundaboutRoadClass, Sign,
+  RoundaboutConfig, RoundaboutDirection, RoundaboutRoadClass, Sign,
 } from '@/lib/types'
 
+import {
+  BLUE, CardinalBadge, SignFrame, WHITE,
+} from './sign-frame'
 import {
   useFont,
 } from '../../fonts/FontContext'
@@ -17,9 +20,6 @@ import {
 import {
   UrbanRoadNameSign,
 } from '../sign/urban-road-name'
-import {
-  useSignColors,
-} from '../sign-colors'
 import {
   OutlinedText,
 } from '../svg-text'
@@ -131,6 +131,20 @@ function branchLength(direction: RoundaboutDirection, layout: CanvasLayout) {
   return layout.standardWide && direction === 'straight' ? 210 : layout.branchLength
 }
 
+// Arrow heads are the same size on every exit of a board, sized for the widest
+// exit road. Shaft widths still follow the road class.
+function arrowHeadHalfWidth(
+  exits: RoundaboutConfig['exits'],
+  directions: RoundaboutDirection[],
+  layout: CanvasLayout,
+) {
+  const widest = Math.max(
+    0,
+    ...directions.map(direction => roadWidth(exits[direction].roadClass, layout)),
+  )
+  return Math.max(layout.standardWide ? 18 : 24, widest * 0.68)
+}
+
 function exitAngle(direction: RoundaboutDirection, layout: CanvasLayout) {
   if (!layout.standardWide) { return EXIT_ANGLES[direction] }
   if (direction === 'left-forward') { return -120 }
@@ -207,6 +221,7 @@ function ExitLabel({
   fontLatin,
   area,
   layout,
+  headHalfWidth,
 }: {
   direction: RoundaboutDirection
   sign: Sign
@@ -215,10 +230,8 @@ function ExitLabel({
   fontLatin: Font
   area: LabelArea
   layout: CanvasLayout
+  headHalfWidth: number
 }) {
-  const {
-    text: WHITE,
-  } = useSignColors()
   const exit = sign.roundaboutConfig.exits[direction]
   const selected = roadSignList.find(candidate => candidate.id === exit.roadSignId)
   const hasRoadSign = Boolean(selected)
@@ -263,7 +276,8 @@ function ExitLabel({
     </g>
   }
 
-  const horizontalArrowClearance = Math.max(24, roadWidth(exit.roadClass, layout) * 0.68)
+  // Matches the uniform arrow head, so labels on both sides sit the same distance away.
+  const horizontalArrowClearance = headHalfWidth
   const isHorizontal = direction === 'left' || direction === 'right'
   const radians = exitAngle(direction, layout) * Math.PI / 180
   const endpointY = layout.centerY + Math.sin(radians) * branchLength(direction, layout)
@@ -377,20 +391,19 @@ function Branch({
   direction,
   roadClass,
   layout,
+  headHalfWidth,
 }: {
   direction: RoundaboutDirection
   roadClass: RoundaboutRoadClass
   layout: CanvasLayout
+  headHalfWidth: number
 }) {
-  const {
-    text: WHITE,
-  } = useSignColors()
   const radians = exitAngle(direction, layout) * Math.PI / 180
   const dx = Math.cos(radians)
   const dy = Math.sin(radians)
   const width = roadWidth(roadClass, layout)
   const length = branchLength(direction, layout)
-  const arrowHalfWidth = Math.max(layout.standardWide ? 18 : 24, width * 0.68)
+  const arrowHalfWidth = headHalfWidth
   const endX = layout.centerX + dx * length
   const endY = layout.centerY + dy * length
   const baseX = endX - dx * layout.arrowLength
@@ -421,9 +434,6 @@ export function RoundaboutGuidanceSign({
   sign: Sign
   roadSignList: Sign[]
 }) {
-  const {
-    plate: BLUE, text: WHITE,
-  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const config = sign.roundaboutConfig
@@ -432,10 +442,9 @@ export function RoundaboutGuidanceSign({
     .filter(direction => config.exits[direction].enabled)
   const approachWidth = roadWidth(config.approachRoadClass, layout)
   const approachBottom = layout.height - (layout.standardWide ? 60 : 45)
-  const borderInset = layout.standardWide ? 15 : 16
-  const borderStrokeWidth = layout.standardWide ? 8 : 9
   const ringStrokeWidth = layout.standardWide ? 30 : 43
   const ringInnerRadius = layout.standardWide ? 25 : 34
+  const headHalfWidth = arrowHeadHalfWidth(config.exits, activeDirections, layout)
 
   return <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -443,22 +452,7 @@ export function RoundaboutGuidanceSign({
     role="img"
     aria-label="环岛图形式交叉路口预告标志"
   >
-    <rect
-      width={layout.width}
-      height={layout.height}
-      rx={layout.standardWide ? 32 : 34}
-      fill={BLUE}
-    />
-    <rect
-      x={borderInset}
-      y={borderInset}
-      width={layout.width - borderInset * 2}
-      height={layout.height - borderInset * 2}
-      rx={layout.standardWide ? 22 : 23}
-      fill="none"
-      stroke={WHITE}
-      strokeWidth={borderStrokeWidth}
-    />
+    <SignFrame width={layout.width} height={layout.height} />
 
     <line
       x1={layout.centerX}
@@ -474,6 +468,7 @@ export function RoundaboutGuidanceSign({
       direction={direction}
       roadClass={config.exits[direction].roadClass}
       layout={layout}
+      headHalfWidth={headHalfWidth}
     />)}
     <circle
       cx={layout.centerX}
@@ -494,26 +489,10 @@ export function RoundaboutGuidanceSign({
       fontLatin={fontLatin}
       area={layout.labelAreas[direction]}
       layout={layout}
+      headHalfWidth={headHalfWidth}
     />)}
 
-    {config.cardinalDirectionVisible && <g aria-label={`${config.cardinalDirection}方位`}>
-      <rect
-        x="24"
-        y="24"
-        width={layout.standardWide ? 44 : 64}
-        height={layout.standardWide ? 44 : 64}
-        rx="4"
-        fill={WHITE}
-      />
-      <OutlinedText
-        font={fontChinese}
-        text={config.cardinalDirection}
-        startX={layout.standardWide ? 31 : 34}
-        startY={layout.standardWide ? 31 : 34}
-        width={layout.standardWide ? 30 : 44}
-        height={layout.standardWide ? 30 : 44}
-        fill={BLUE}
-      />
-    </g>}
+    {config.cardinalDirectionVisible
+      && <CardinalBadge text={config.cardinalDirection} font={fontChinese} />}
   </svg>
 }

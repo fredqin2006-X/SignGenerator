@@ -3,6 +3,12 @@ import type {
 } from '@/lib/types'
 
 import {
+  BLUE, CardinalBadge, RED, SignFrame, WHITE,
+} from './sign-frame'
+import {
+  fittedTextHeight,
+} from './text-fit'
+import {
   useFont,
 } from '../../fonts/FontContext'
 import {
@@ -15,9 +21,6 @@ import {
   urbanExpresswayRoadNameNaturalSize,
 } from '../sign/urban-expressway-road-name'
 import {
-  useSignColors,
-} from '../sign-colors'
-import {
   OutlinedText,
 } from '../svg-text'
 
@@ -27,6 +30,27 @@ import type {
 
 const WIDTH = 1000
 const HEIGHT = 620
+
+// Junction centre and arrow geometry, shared by all three branches so the
+// straight, left and right arrows are exactly the same size.
+const CX = 500
+const CY = 400
+const SHAFT_HALF = 18
+const HEAD_HALF = 52
+const HEAD_LENGTH = 62
+// Distance from the junction centre to each arrow tip; equal in all directions.
+const REACH = 232
+// Shafts start inside the centre label, which is drawn on top of them.
+const SHAFT_START = 35
+// Bottom end of the approach road (below the junction, no arrow head).
+const APPROACH_END = 545
+
+const DIRECTION_TEXT = {
+  maxHeight: 56,
+  // Fixed letter spacing as a share of character height.
+  gapRatio: 0.15,
+  referenceText: '北京路',
+} as const
 
 interface DirectionArea {
   x: number
@@ -39,15 +63,18 @@ type ContentRow =
   | { key: string; type: 'text'; text: string }
   | { key: string; type: 'road-sign'; sign: Sign }
 
+// Side areas run from 14 units inside the white border to 14 units before the
+// arrow tips (x = CX ∓ REACH), so both sides have the same width. The straight
+// area ends 16 units above the straight arrow tip.
 const DIRECTION_AREAS: Record<IntersectionDirection, DirectionArea> = {
   left: {
-    x: 40, y: 290, width: 180, height: 220,
+    x: 37, y: 290, width: 217, height: 220,
   },
   straight: {
-    x: 350, y: 38, width: 300, height: 118,
+    x: 350, y: 40, width: 300, height: 112,
   },
   right: {
-    x: 780, y: 290, width: 180, height: 220,
+    x: 746, y: 290, width: 217, height: 220,
   },
 }
 
@@ -74,23 +101,8 @@ function routeWidth(sign: Sign, height: number, fontChinese: Font) {
   return height * size.width / size.height
 }
 
-function DirectionContents({
-  items,
-  area,
-  roadSignList,
-  fontChinese,
-  fontLatin,
-}: {
-  items: IntersectionItem[]
-  area: DirectionArea
-  roadSignList: Sign[]
-  fontChinese: Font
-  fontLatin: Font
-}) {
-  const {
-    text: WHITE,
-  } = useSignColors()
-  const rows: ContentRow[] = items.flatMap<ContentRow>((item) => {
+function contentRows(items: IntersectionItem[], roadSignList: Sign[]): ContentRow[] {
+  return items.flatMap<ContentRow>((item) => {
     if (item.type === 'text') {
       return splitLongLine(item.text).map((text, index) => ({
         key: `${item.id}-text-${index}`,
@@ -103,9 +115,52 @@ function DirectionContents({
       key: `${item.id}-sign`, type: 'road-sign' as const, sign,
     }] : []
   })
-  const rowHeight = Math.min(92, area.height / Math.max(1, rows.length))
+}
+
+function rowHeightFor(area: DirectionArea, rowCount: number) {
+  return Math.min(92, area.height / Math.max(1, rowCount))
+}
+
+// One character height for every direction label on the board, so a long name
+// in one direction does not leave the other directions at a different size.
+function sharedTextHeight(
+  rowsByDirection: Record<IntersectionDirection, ContentRow[]>,
+  font: Font,
+) {
+  const directions = Object.keys(rowsByDirection) as IntersectionDirection[]
+  const rowLimit = Math.min(...directions.map(direction => rowHeightFor(
+    DIRECTION_AREAS[direction],
+    rowsByDirection[direction].length,
+  ) * 0.72))
+  return fittedTextHeight(
+    font,
+    directions.flatMap(direction => rowsByDirection[direction]
+      .flatMap(row => row.type === 'text' ? [{
+        text: row.text, width: DIRECTION_AREAS[direction].width,
+      }] : [])),
+    Math.min(DIRECTION_TEXT.maxHeight, rowLimit),
+    DIRECTION_TEXT.gapRatio,
+    DIRECTION_TEXT.referenceText,
+  )
+}
+
+function DirectionContents({
+  rows,
+  area,
+  textHeight,
+  fontChinese,
+  fontLatin,
+}: {
+  rows: ContentRow[]
+  area: DirectionArea
+  textHeight: number
+  fontChinese: Font
+  fontLatin: Font
+}) {
+  const rowHeight = rowHeightFor(area, rows.length)
   const totalHeight = rows.length * rowHeight
   const startY = area.y + (area.height - totalHeight) / 2
+  const gap = textHeight * DIRECTION_TEXT.gapRatio
 
   return <>
     {rows.map((row, index) => {
@@ -116,15 +171,16 @@ function DirectionContents({
           font={fontChinese}
           text={row.text}
           startX={area.x}
-          startY={y + (rowHeight - Math.min(56, rowHeight * 0.72)) / 2}
+          startY={y + (rowHeight - textHeight) / 2}
           width={area.width}
-          height={Math.min(56, rowHeight * 0.72)}
+          height={textHeight}
           fill={WHITE}
           options={{
-            minGap: 4,
-            maxGap: 18,
+            align: 'center',
+            minGap: gap,
+            maxGap: gap,
             scaleMode: 'reference',
-            referenceText: '北京路',
+            referenceText: DIRECTION_TEXT.referenceText,
           }}
         />
       }
@@ -152,9 +208,6 @@ function DirectionContents({
 function CenterRoadLabel({
   text, font,
 }: { text: string; font: Font }) {
-  const {
-    plate: BLUE, text: WHITE,
-  } = useSignColors()
   const lines = splitLongLine(text)
   const lineHeight = lines.length === 1 ? 62 : 38
   const gap = lines.length === 1 ? 0 : 8
@@ -188,36 +241,39 @@ function CenterRoadLabel({
   </g>
 }
 
+const BRANCH_ROTATION: Record<IntersectionDirection, number> = {
+  straight: 0,
+  left: -90,
+  right: 90,
+}
+
+// Every branch is the same upward-pointing shape, rotated about the junction
+// centre. Closed branches keep the shaft and end in a red bar instead of a head.
 function Branch({
   direction, open,
 }: { direction: IntersectionDirection; open: boolean }) {
-  const {
-    text: WHITE, resolve,
-  } = useSignColors()
-  // 未开通方向上的红色警示块。
-  const RED = resolve('red')
-  if (direction === 'straight') {
-    return open
-      ? <path d="M482 365V220h-37l55-65 55 65h-37v145z" fill={WHITE} />
+  const headBase = REACH - HEAD_LENGTH
+  // The red bar of a closed branch sits where the middle of the arrow head would be.
+  const barCenter = REACH - HEAD_LENGTH / 2
+  const barHalfHeight = SHAFT_HALF - 1
+  return <g transform={`translate(${CX} ${CY}) rotate(${BRANCH_ROTATION[direction]})`}>
+    {open
+      ? <path
+        d={`M${-SHAFT_HALF} ${-SHAFT_START}V${-headBase}H${-HEAD_HALF}L0 ${-REACH}`
+          + `L${HEAD_HALF} ${-headBase}H${SHAFT_HALF}V${-SHAFT_START}z`}
+        fill={WHITE}
+      />
       : <>
-        <rect x="482" y="205" width="36" height="160" fill={WHITE} />
-        <rect x="440" y="185" width="120" height="34" rx="4" fill={RED} />
-      </>
-  }
-  if (direction === 'left') {
-    return open
-      ? <path d="M390 382H300v-34l-62 52 62 52v-34h90z" fill={WHITE} />
-      : <>
-        <rect x="300" y="382" width="90" height="36" fill={WHITE} />
-        <rect x="284" y="350" width="32" height="100" rx="4" fill={RED} />
-      </>
-  }
-  return open
-    ? <path d="M610 382h90v-34l62 52-62 52v-34h-90z" fill={WHITE} />
-    : <>
-      <rect x="610" y="382" width="90" height="36" fill={WHITE} />
-      <rect x="684" y="350" width="32" height="100" rx="4" fill={RED} />
-    </>
+        <rect
+          x={-SHAFT_HALF} y={-barCenter} width={SHAFT_HALF * 2} height={barCenter - SHAFT_START}
+          fill={WHITE}
+        />
+        <rect
+          x={-HEAD_HALF} y={-barCenter - barHalfHeight} width={HEAD_HALF * 2}
+          height={barHalfHeight * 2} rx="4" fill={RED}
+        />
+      </>}
+  </g>
 }
 
 export function IntersectionGuidanceSign({
@@ -227,9 +283,6 @@ export function IntersectionGuidanceSign({
   sign: Sign
   roadSignList: Sign[]
 }) {
-  const {
-    plate: BLUE, text: WHITE,
-  } = useSignColors()
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const directions = sign.intersectionConfig.directions
@@ -239,6 +292,12 @@ export function IntersectionGuidanceSign({
     right: activeItems(directions.right, roadSignList),
   }
   const centerRoadName = sign.intersectionConfig.centerRoadName.trim()
+  const rows = {
+    left: contentRows(active.left, roadSignList),
+    straight: contentRows(active.straight, roadSignList),
+    right: contentRows(active.right, roadSignList),
+  }
+  const textHeight = sharedTextHeight(rows, fontChinese)
 
   return <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -246,41 +305,24 @@ export function IntersectionGuidanceSign({
     role="img"
     aria-label={`${centerRoadName || '未命名'}交叉路口指路标志`}
   >
-    <rect width={WIDTH} height={HEIGHT} rx="34" fill={BLUE} />
+    <SignFrame width={WIDTH} height={HEIGHT} />
     <rect
-      x="18"
-      y="18"
-      width={WIDTH - 36}
-      height={HEIGHT - 36}
-      rx="22"
-      fill="none"
-      stroke={WHITE}
-      strokeWidth="10"
+      x={CX - SHAFT_HALF} y={CY + SHAFT_START}
+      width={SHAFT_HALF * 2} height={APPROACH_END - CY - SHAFT_START}
+      fill={WHITE}
     />
-    <rect x="482" y="435" width="36" height="110" fill={WHITE} />
     <Branch direction="left" open={active.left.length > 0} />
     <Branch direction="straight" open={active.straight.length > 0} />
     <Branch direction="right" open={active.right.length > 0} />
-    {(Object.keys(active) as IntersectionDirection[]).map(direction => <DirectionContents
+    {(Object.keys(rows) as IntersectionDirection[]).map(direction => <DirectionContents
       key={direction}
-      items={active[direction]}
+      rows={rows[direction]}
       area={DIRECTION_AREAS[direction]}
-      roadSignList={roadSignList}
+      textHeight={textHeight}
       fontChinese={fontChinese}
       fontLatin={fontLatin}
     />)}
     <CenterRoadLabel text={centerRoadName} font={fontChinese} />
-    <g aria-label={`${sign.intersectionConfig.cardinalDirection}方位`}>
-      <rect x="38" y="38" width="62" height="62" rx="4" fill={WHITE} />
-      <OutlinedText
-        font={fontChinese}
-        text={sign.intersectionConfig.cardinalDirection}
-        startX={48}
-        startY={48}
-        width={42}
-        height={42}
-        fill={BLUE}
-      />
-    </g>
+    <CardinalBadge text={sign.intersectionConfig.cardinalDirection} font={fontChinese} />
   </svg>
 }

@@ -3,6 +3,9 @@ import type {
 } from '@/lib/types'
 
 import {
+  CardinalBadge, SignFrame, WHITE,
+} from './sign-frame'
+import {
   useFont,
 } from '../../fonts/FontContext'
 import {
@@ -15,9 +18,6 @@ import {
   urbanExpresswayRoadNameNaturalSize,
 } from '../sign/urban-expressway-road-name'
 import {
-  useSignColors,
-} from '../sign-colors'
-import {
   OutlinedText,
 } from '../svg-text'
 
@@ -25,12 +25,15 @@ import type {
   Font,
 } from '@pdf-lib/fontkit'
 
+const WIDTH = 1000
+const HEIGHT = 560
+// Upright characters are all sized against this text so that thin glyphs such
+// as “上” or “一” do not grow taller than their neighbours.
+const VERTICAL_REFERENCE = '路'
+
 function HorizontalText({
   text, x, y, width, height, font,
 }: { text: string; x: number; y: number; width: number; height: number; font: Font }) {
-  const {
-    text: WHITE,
-  } = useSignColors()
   if (!text) { return null }
   return <OutlinedText
     font={font}
@@ -49,9 +52,6 @@ function HorizontalText({
 function VerticalText({
   text, x, y, maxHeight, font, size = 53,
 }: { text: string; x: number; y: number; maxHeight: number; font: Font; size?: number }) {
-  const {
-    text: WHITE,
-  } = useSignColors()
   const chars = Array.from(text)
   if (!chars.length) { return null }
   const step = Math.min(size + 4, maxHeight / chars.length)
@@ -67,6 +67,12 @@ function VerticalText({
       width={glyphSize}
       height={glyphSize}
       fill={WHITE}
+      options={{
+        scaleMode: 'reference',
+        referenceText: VERTICAL_REFERENCE,
+        // Shrink every character by the same amount if any one is too wide.
+        fitTexts: chars,
+      }}
     />)}
   </g>
 }
@@ -146,11 +152,6 @@ function DirectionItems({
   fontChinese: Font
   fontLatin: Font
 }) {
-  const {
-    text: WHITE, resolve,
-  } = useSignColors()
-  // 高亮条用的是比底色稍深的那版绿色。
-  const HIGHLIGHT = resolve('green')
   const active = items.flatMap((item) => {
     const roadSign = item.type === 'road-sign'
       ? roadSignList.find(sign => sign.id === item.roadSignId)
@@ -184,7 +185,8 @@ function DirectionItems({
           item: rowItem,
         }) => Boolean(rowItem.distance))
       const distanceHeight = rowHasDistance ? Math.min(28, height * 0.34) : 0
-      const labelHeight = Math.min(height - distanceHeight - 2, area.layout === 'row' ? 54 : 50)
+      // Same label height for straight and turning destinations.
+      const labelHeight = Math.min(height - distanceHeight - 2, 52)
       const labelY = y + (height - distanceHeight - labelHeight) / 2
 
       return <g key={item.id} aria-label={roadSign?.code || item.text}>
@@ -213,7 +215,7 @@ function DirectionItems({
         })() : <>
           {item.highlighted && <rect
             x={x + 2} y={labelY - 2} width={width - 4} height={labelHeight + 4}
-            fill={HIGHLIGHT} stroke={WHITE} strokeWidth="2"
+            fill="#148050" stroke={WHITE} strokeWidth="2"
           />}
           <HorizontalText
             text={item.text} x={x + 8} y={labelY} width={width - 16}
@@ -232,34 +234,18 @@ function DirectionItems({
 export function CrossroadsGuidanceSign({
   sign, roadSignList,
 }: { sign: Sign; roadSignList: Sign[] }) {
-  const {
-    plate: BLUE, text: WHITE,
-  } = useSignColors()
-  const fontChinese = useFont('han')
+  const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const config = sign.crossroadsConfig
 
   return <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 1000 560"
+    viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
     role="img"
     aria-label={`${config.centerRoad || '未命名'}十字路口图形式指路标志`}
   >
-    <rect width="1000" height="560" rx="18" fill={BLUE} />
-    <rect x="12" y="12" width="976" height="536" rx="9" fill="none" stroke={WHITE} strokeWidth="8" />
-
-    {config.cardinalDirection && <g aria-label={`${config.cardinalDirection}方位`}>
-      <rect x="26" y="26" width="70" height="70" fill={WHITE} />
-      <OutlinedText
-        font={fontChinese}
-        text={config.cardinalDirection}
-        startX={37}
-        startY={37}
-        width={48}
-        height={48}
-        fill={BLUE}
-      />
-    </g>}
+    <SignFrame width={WIDTH} height={HEIGHT} />
+    <CardinalBadge text={config.cardinalDirection} font={fontChinese} />
 
     <DirectionItems
       items={config.directions.straight}
