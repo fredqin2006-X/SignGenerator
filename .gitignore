@@ -43,4 +43,5 @@ next-env.d.ts
 
 # Ai Config Files
 .kagent
+# reference documents such as the GB 5768.2 PDF
 *.pdf

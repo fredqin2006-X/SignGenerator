@@ -27,6 +27,8 @@ import type {
 
 const WIDTH = 1000
 const HEIGHT = 560
+// Character height on this board; the frame and badge are sized from it.
+const UNIT = 50
 // Upright characters are all sized against this text so that thin glyphs such
 // as “上” or “一” do not grow taller than their neighbours.
 const VERTICAL_REFERENCE = '路'
@@ -244,8 +246,8 @@ export function CrossroadsGuidanceSign({
     role="img"
     aria-label={`${config.centerRoad || '未命名'}十字路口图形式指路标志`}
   >
-    <SignFrame width={WIDTH} height={HEIGHT} />
-    <CardinalBadge text={config.cardinalDirection} font={fontChinese} />
+    <SignFrame width={WIDTH} height={HEIGHT} unit={UNIT} />
+    <CardinalBadge text={config.cardinalDirection} font={fontChinese} unit={UNIT} />
 
     <DirectionItems
       items={config.directions.straight}

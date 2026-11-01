@@ -3,428 +3,363 @@ import type {
 } from '@/lib/types'
 
 import {
-  BLUE, CardinalBadge, SignFrame, WHITE,
+  balancedLines, measureStack, StackBlock, type MeasuredStack, type StackRow,
+} from './label-stack'
+import {
+  BADGE_SIZE, BLUE, CardinalBadge, FRAME_INNER, SignFrame, WHITE,
 } from './sign-frame'
 import {
   useFont,
 } from '../../fonts/FontContext'
-import {
-  expresswaySignNaturalSize,
-} from '../sign/expressway'
-import {
-  RouteSignNode,
-} from '../sign/route-sign'
-import {
-  urbanExpresswayRoadNameNaturalSize,
-} from '../sign/urban-expressway-road-name'
-import {
-  UrbanRoadNameSign,
-} from '../sign/urban-road-name'
-import {
-  OutlinedText,
-} from '../svg-text'
 
-import type {
-  Font,
-} from '@pdf-lib/fontkit'
+// Viewbox units per h (character height). All geometry below is in h and comes
+// from GB 5768.2-2022 drawing E.168 (路2): a 9h x 7.7h board, junction centre
+// 4.5h from the left and 4.2h from the top, white ring of radius 0.8h around a
+// 0.4h blue island, 0.4h wide arms with 0.4h fillets, tips 3h (left/right) and
+// 2h (diagonals at 60°) from the centre, approach ending 0.7h above the bottom.
+const U = 100
 
-const ROAD_WIDTHS: Record<RoundaboutRoadClass, number> = {
-  major: 54,
-  numbered: 40,
-  local: 26,
+interface Layout {
+  width: number
+  height: number
+  cx: number
+  cy: number
+  approachEnd: number
 }
 
-const EXIT_ANGLES: Record<RoundaboutDirection, number> = {
+// 横向版面 is drawing E.168. 方形版面 is figure 206, whose board is a little
+// taller (about 9h x 8.3h) with the same junction drawing.
+const LAYOUTS: Record<RoundaboutConfig['layout'], Layout> = {
+  wide: {
+    width: 9, height: 7.7, cx: 4.5, cy: 4.2, approachEnd: 7.0,
+  },
+  square: {
+    width: 9, height: 8.3, cx: 4.5, cy: 4.6, approachEnd: 7.6,
+  },
+}
+
+const RING_OUTER = 0.8
+const RING_INNER = 0.4
+const FILLET = 0.4
+// Half widths. 编号集散道路 matches the 0.4h arms of E.168.
+const ARM_HALF: Record<RoundaboutRoadClass, number> = {
+  major: 0.25,
+  numbered: 0.2,
+  local: 0.15,
+}
+const EXIT_ANGLE: Record<RoundaboutDirection, number> = {
   right: 0,
-  'right-forward': -45,
+  'right-forward': -60,
   straight: -90,
-  'left-forward': -135,
+  'left-forward': -120,
   left: 180,
 }
-
-interface CanvasLayout {
-  width: number
-  height: number
-  centerX: number
-  centerY: number
-  branchLength: number
-  ringRadius: number
-  arrowLength: number
-  standardWide: boolean
-  labelAreas: Record<RoundaboutDirection, LabelArea>
+const EXIT_REACH: Record<RoundaboutDirection, number> = {
+  right: 3,
+  'right-forward': 2,
+  straight: 1.75,
+  'left-forward': 2,
+  left: 3,
 }
 
-interface LabelArea {
+// Label clearances from E.168: labels sit 0.3h below the left/right arms,
+// 0.3h above diagonal tips, centred 2.6h either side of the junction, and keep
+// 0.3h (top/bottom) or 0.1h (sides) from the white border.
+const CLEARANCE = 0.2
+const MARGIN_TB = 0.3
+const MARGIN_SIDE = 0.1
+const BELOW_ARM = 0.3
+const TIP_GAP = 0.3
+const TIP_INSET = 0.2
+const SIDE_LABEL_OFFSET = 2.6
+const NAME_MAX = 4
+
+type Point = [number, number]
+
+const radians = (degrees: number) => degrees * Math.PI / 180
+const toPath = (points: Point[]) =>
+  `M${points.map(([x, y]) => `${(x * U).toFixed(2)} ${(y * U).toFixed(2)}`).join('L')}z`
+
+// Points along the shorter arc from angle `from` to `to` around `center`.
+function arc(center: Point, radius: number, from: number, to: number, steps = 10): Point[] {
+  let delta = to - from
+  while (delta > Math.PI) { delta -= Math.PI * 2 }
+  while (delta < -Math.PI) { delta += Math.PI * 2 }
+  return Array.from({
+    length: steps + 1,
+  }, (_, index) => {
+    const angle = from + delta * index / steps
+    return [center[0] + Math.cos(angle) * radius, center[1] + Math.sin(angle) * radius]
+  })
+}
+
+// Arm from the junction centre (origin) outwards. Exits end in a 45° point;
+// the approach ends square.
+function armPolygon(angle: number, reach: number, half: number, pointed: boolean): Point[] {
+  const d: Point = [Math.cos(angle), Math.sin(angle)]
+  const n: Point = [-d[1], d[0]]
+  const at = (along: number, across: number): Point =>
+    [d[0] * along + n[0] * across, d[1] * along + n[1] * across]
+  const shoulder = pointed ? reach - half : reach
+  return [
+    at(0, half), at(shoulder, half),
+    ...pointed ? [at(reach, 0)] : [],
+    at(shoulder, -half), at(0, -half),
+  ]
+}
+
+// Concave fillet of radius FILLET between one edge of an arm and the ring.
+function filletCenter(angle: number, half: number, side: 1 | -1): Point {
+  const d: Point = [Math.cos(angle), Math.sin(angle)]
+  const n: Point = [-d[1], d[0]]
+  const offset = half + FILLET
+  const along = Math.sqrt((RING_OUTER + FILLET) ** 2 - offset ** 2)
+  return [d[0] * along + n[0] * offset * side, d[1] * along + n[1] * offset * side]
+}
+
+function filletPolygon(angle: number, half: number, side: 1 | -1): Point[] {
+  const d: Point = [Math.cos(angle), Math.sin(angle)]
+  const n: Point = [-d[1], d[0]]
+  const center = filletCenter(angle, half, side)
+  const along = Math.sqrt((RING_OUTER + FILLET) ** 2 - (half + FILLET) ** 2)
+  // Tangent point on the arm edge, tangent point on the ring, and where the
+  // arm edge meets the ring.
+  const p1: Point = [d[0] * along + n[0] * half * side, d[1] * along + n[1] * half * side]
+  const scale = RING_OUTER / (RING_OUTER + FILLET)
+  const p2: Point = [center[0] * scale, center[1] * scale]
+  const meet = Math.sqrt(RING_OUTER ** 2 - half ** 2)
+  const q: Point = [d[0] * meet + n[0] * half * side, d[1] * meet + n[1] * half * side]
+  const a1 = Math.atan2(p1[1] - center[1], p1[0] - center[0])
+  const a2 = Math.atan2(p2[1] - center[1], p2[0] - center[0])
+  return [
+    q, p1,
+    ...arc(center, FILLET, a1, a2),
+    ...arc([0, 0], RING_OUTER, Math.atan2(p2[1], p2[0]), Math.atan2(q[1], q[0]), 6),
+  ]
+}
+
+// The blue slit through the ring left of the approach (E.168), which shows the
+// direction of circulation. Points are relative to the junction centre.
+function slitPolygon(approachHalf: number): Point[] {
+  const base: Point[] = [[-0.24, 0.33], [-0.73, 0.75], [-0.42, 0.95], [-0.06, 0.4]]
+  // Rotate clockwise for a wider approach so the slit stays clear of it.
+  const extra = Math.max(0, approachHalf - ARM_HALF.numbered)
+  const turn = Math.asin(Math.min(1, extra / RING_OUTER))
+  const cos = Math.cos(turn)
+  const sin = Math.sin(turn)
+  return base.map(([x, y]) => [x * cos - y * sin, x * sin + y * cos])
+}
+
+interface Rect {
   x: number
   y: number
-  width: number
-  height: number
+  w: number
+  h: number
 }
 
-const SQUARE_LAYOUT: CanvasLayout = {
-  width: 820,
-  height: 760,
-  centerX: 410,
-  centerY: 445,
-  branchLength: 205,
-  ringRadius: 60,
-  arrowLength: 38,
-  standardWide: false,
-  labelAreas: {
-    left: {
-      x: 35, y: 325, width: 230, height: 220,
-    },
-    'left-forward': {
-      x: 42, y: 78, width: 220, height: 180,
-    },
-    straight: {
-      x: 300, y: 38, width: 220, height: 175,
-    },
-    'right-forward': {
-      x: 558, y: 78, width: 220, height: 180,
-    },
-    right: {
-      x: 555, y: 325, width: 230, height: 220,
-    },
-  },
+function pointRectDistance([px, py]: Point, rect: Rect) {
+  const dx = Math.max(rect.x - px, 0, px - (rect.x + rect.w))
+  const dy = Math.max(rect.y - py, 0, py - (rect.y + rect.h))
+  return Math.hypot(dx, dy)
 }
 
-const WIDE_LAYOUT: CanvasLayout = {
-  width: 900,
-  height: 770,
-  centerX: 450,
-  centerY: 425,
-  branchLength: 300,
-  ringRadius: 48,
-  arrowLength: 32,
-  standardWide: true,
-  labelAreas: {
-    left: {
-      x: 45, y: 470, width: 270, height: 220,
-    },
-    'left-forward': {
-      x: 70, y: 80, width: 230, height: 165,
-    },
-    straight: {
-      x: 330, y: 35, width: 240, height: 165,
-    },
-    'right-forward': {
-      x: 600, y: 45, width: 260, height: 220,
-    },
-    right: {
-      x: 590, y: 470, width: 265, height: 200,
-    },
-  },
+// Distance from a rectangle to a segment, sampled along the segment. Fine
+// enough for label clearances of 0.2h.
+function segmentRectDistance(a: Point, b: Point, rect: Rect) {
+  const steps = 40
+  let best = Infinity
+  for (let index = 0; index <= steps; index++) {
+    const t = index / steps
+    const point: Point = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+    best = Math.min(best, pointRectDistance(point, rect))
+  }
+  return best
 }
 
-const STANDARD_ROAD_WIDTHS: Record<RoundaboutRoadClass, number> = {
-  major: 40,
-  numbered: 30,
-  local: 20,
+const rectsGap = (a: Rect, b: Rect) => Math.max(
+  a.x - (b.x + b.w), b.x - (a.x + a.w), a.y - (b.y + b.h), b.y - (a.y + a.h),
+)
+
+interface Obstacles {
+  circles: { center: Point; radius: number }[]
+  segments: { a: Point; b: Point; half: number }[]
+  rects: Rect[]
 }
 
-function roadWidth(roadClass: RoundaboutRoadClass, layout: CanvasLayout) {
-  return (layout.standardWide ? STANDARD_ROAD_WIDTHS : ROAD_WIDTHS)[roadClass]
+function junctionObstacles(
+  layout: Layout,
+  arms: { angle: number; reach: number; half: number }[],
+  badge: boolean,
+): Obstacles {
+  const c: Point = [layout.cx, layout.cy]
+  return {
+    circles: [
+      {
+        center: c, radius: RING_OUTER,
+      },
+      ...arms.flatMap(arm => ([1, -1] as const).map((side) => {
+        const [fx, fy] = filletCenter(radians(arm.angle), arm.half, side)
+        // Region filled by the fillet, approximated by the circle through its
+        // tangent points.
+        return {
+          center: [c[0] + fx * 0.75, c[1] + fy * 0.75] as Point,
+          radius: FILLET * 0.6,
+        }
+      })),
+    ],
+    segments: arms.map(arm => ({
+      a: c,
+      b: [
+        c[0] + Math.cos(radians(arm.angle)) * arm.reach,
+        c[1] + Math.sin(radians(arm.angle)) * arm.reach,
+      ] as Point,
+      half: arm.half,
+    })),
+    rects: badge ? [{
+      x: FRAME_INNER, y: FRAME_INNER, w: BADGE_SIZE, h: BADGE_SIZE,
+    }] : [],
+  }
 }
 
-function branchLength(direction: RoundaboutDirection, layout: CanvasLayout) {
-  return layout.standardWide && direction === 'straight' ? 210 : layout.branchLength
+function collides(rect: Rect, obstacles: Obstacles, placed: Rect[]) {
+  return obstacles.circles.some(({
+    center, radius,
+  }) => pointRectDistance(center, rect) < radius + CLEARANCE)
+    || obstacles.segments.some(({
+      a, b, half,
+    }) => segmentRectDistance(a, b, rect) < half + CLEARANCE)
+    || [...obstacles.rects, ...placed].some(other => rectsGap(rect, other) < CLEARANCE)
 }
 
-// Arrow heads are the same size on every exit of a board, sized for the widest
-// exit road. Shaft widths still follow the road class.
-function arrowHeadHalfWidth(
-  exits: RoundaboutConfig['exits'],
-  directions: RoundaboutDirection[],
-  layout: CanvasLayout,
+interface Label {
+  direction: RoundaboutDirection
+  stack: MeasuredStack
+  rect: Rect
+}
+
+const PLACEMENT_ORDER: RoundaboutDirection[] = [
+  'straight', 'left-forward', 'right-forward', 'left', 'right',
+]
+
+// Diagonal exits are at 60° in E.168. With a straight exit as well they move to
+// 45°, otherwise the straight and diagonal arms would be only 30° apart.
+function exitAngle(direction: RoundaboutDirection, hasStraight: boolean) {
+  if (!hasStraight) { return EXIT_ANGLE[direction] }
+  if (direction === 'left-forward') { return -135 }
+  if (direction === 'right-forward') { return -45 }
+  return EXIT_ANGLE[direction]
+}
+
+// Starting position for each label (from E.168), and the direction it is
+// pushed in when it touches the junction or another label.
+function initialRect(
+  direction: RoundaboutDirection, angle: number, w: number, h: number, layout: Layout,
 ) {
-  const widest = Math.max(
-    0,
-    ...directions.map(direction => roadWidth(exits[direction].roadClass, layout)),
-  )
-  return Math.max(layout.standardWide ? 18 : 24, widest * 0.68)
-}
-
-function exitAngle(direction: RoundaboutDirection, layout: CanvasLayout) {
-  if (!layout.standardWide) { return EXIT_ANGLES[direction] }
-  if (direction === 'left-forward') { return -120 }
-  if (direction === 'right-forward') { return -60 }
-  return EXIT_ANGLES[direction]
-}
-
-function roadSignWidth(sign: Sign, height: number, fontChinese: Font) {
-  if (sign.template === 'ordinary-road') { return height * 213.51 / 102.59 }
-  if (sign.template === 'urban-expressway-road-name') {
-    const size = urbanExpresswayRoadNameNaturalSize(fontChinese, sign.urbanRoadName)
-    return height * size.width / size.height
-  }
-  if (sign.template === 'urban-road-name') { return height * 760 / 300 }
-  const size = expresswaySignNaturalSize(sign.code)
-  return height * size.width / size.height
-}
-
-function RoadSignLabel({
-  selected,
-  roadSignList,
-  fontChinese,
-  fontLatin,
-  area,
-}: {
-  selected: Sign
-  roadSignList: Sign[]
-  fontChinese: Font
-  fontLatin: Font
-  area: LabelArea
-}) {
-  const targetHeight = Math.min(86, area.height)
-  const naturalWidth = roadSignWidth(selected, targetHeight, fontChinese)
-  const width = Math.min(area.width * 0.82, naturalWidth)
-  const height = naturalWidth > area.width * 0.82
-    ? targetHeight * area.width * 0.82 / naturalWidth
-    : targetHeight
-  const x = area.x + (area.width - width) / 2
-  const y = area.y + Math.max(0, (area.height - height) / 2)
-  if (selected.template === 'urban-road-name') {
-    return <UrbanRoadNameSign
-      name={selected.urbanRoadName}
-      style={selected.urbanRoadStyle}
-      routeSign={roadSignList.find(sign => sign.id === selected.urbanRoadRouteSignId)}
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-    />
-  }
-  return <RouteSignNode
-    code={selected.template === 'urban-expressway-road-name'
-      ? selected.urbanRoadName
-      : selected.code}
-    kind={selected.template === 'urban-expressway-road-name'
-      ? 'urban-expressway'
-      : selected.kind}
-    provinceLabel={selected.provinceLabel}
-    threeDigitDescend={selected.threeDigitDescend}
-    fontChinese={fontChinese}
-    fontLatin={fontLatin}
-    x={x}
-    y={y}
-    width={width}
-    height={height}
-  />
-}
-
-function ExitLabel({
-  direction,
-  sign,
-  roadSignList,
-  fontChinese,
-  fontLatin,
-  area,
-  layout,
-  headHalfWidth,
-}: {
-  direction: RoundaboutDirection
-  sign: Sign
-  roadSignList: Sign[]
-  fontChinese: Font
-  fontLatin: Font
-  area: LabelArea
-  layout: CanvasLayout
-  headHalfWidth: number
-}) {
-  const exit = sign.roundaboutConfig.exits[direction]
-  const selected = roadSignList.find(candidate => candidate.id === exit.roadSignId)
-  const hasRoadSign = Boolean(selected)
-  if (layout.standardWide) {
-    const signSlotHeight = selected ? Math.min(90, area.height * 0.46) : 0
-    const labelGap = selected && exit.destination ? 10 : 0
-    const textHeight = exit.destination
-      ? Math.min(100, area.height - signSlotHeight - labelGap)
-      : 0
-    const blockHeight = signSlotHeight + labelGap + textHeight
-    const blockY = area.y + Math.max(0, (area.height - blockHeight) / 2)
-    const signArea: LabelArea = {
-      x: area.x,
-      y: blockY,
-      width: area.width,
-      height: signSlotHeight,
+  const tip: Point = [
+    layout.cx + Math.cos(radians(angle)) * EXIT_REACH[direction],
+    layout.cy + Math.sin(radians(angle)) * EXIT_REACH[direction],
+  ]
+  const top = FRAME_INNER + MARGIN_TB
+  switch (direction) {
+    case 'left':
+    case 'right': {
+      const center = layout.cx + (direction === 'left' ? -1 : 1) * SIDE_LABEL_OFFSET
+      return {
+        rect: {
+          x: center - w / 2, y: layout.cy + ARM_HALF.numbered + BELOW_ARM, w, h,
+        },
+        push: [direction === 'left' ? -1 : 1, 0] as Point,
+      }
     }
-
-    return <g aria-label={`${exit.destination || '未命名'} ${direction}`}>
-      {selected && <RoadSignLabel
-        selected={selected}
-        roadSignList={roadSignList}
-        fontChinese={fontChinese}
-        fontLatin={fontLatin}
-        area={signArea}
-      />}
-      {exit.destination && <OutlinedText
-        font={fontChinese}
-        text={exit.destination}
-        startX={area.x + 5}
-        startY={blockY + signSlotHeight + labelGap}
-        width={area.width - 10}
-        height={textHeight}
-        fill={WHITE}
-        options={{
-          minGap: 8,
-          maxGap: 20,
-          scaleMode: 'reference',
-          referenceText: '科技公园',
-        }}
-      />}
-    </g>
-  }
-
-  // Matches the uniform arrow head, so labels on both sides sit the same distance away.
-  const horizontalArrowClearance = headHalfWidth
-  const isHorizontal = direction === 'left' || direction === 'right'
-  const radians = exitAngle(direction, layout) * Math.PI / 180
-  const endpointY = layout.centerY + Math.sin(radians) * branchLength(direction, layout)
-  const topMargin = 42
-  const arrowGap = 24
-  const availableAbove = Math.max(80, endpointY - arrowGap - topMargin)
-  const textHeight = hasRoadSign
-    ? Math.min(56, availableAbove * 0.38)
-    : 68
-  const signSlotHeight = hasRoadSign
-    ? Math.min(82, availableAbove - textHeight - 8)
-    : 0
-  const blockHeight = signSlotHeight + (hasRoadSign ? 8 : 0) + textHeight
-  const blockY = Math.max(topMargin, endpointY - arrowGap - blockHeight)
-  const isWideHorizontal = isHorizontal && layout.width > 1000
-
-  if (isWideHorizontal) {
-    const inlineSignHeight = 76
-    const inlineTextHeight = 62
-    const selectedSignWidth = selected
-      ? roadSignWidth(selected, inlineSignHeight, fontChinese)
-      : 0
-    const signAreaWidth = selected
-      ? Math.min(170, Math.max(82, selectedSignWidth / 0.82))
-      : 0
-    const inlineGap = selected && exit.destination ? 12 : 0
-    const desiredTextWidth = exit.destination
-      ? Math.min(200, Math.max(72, Array.from(exit.destination).length * 65))
-      : 0
-    const textWidth = Math.min(
-      desiredTextWidth,
-      Math.max(0, area.width - signAreaWidth - inlineGap),
-    )
-    const totalWidth = signAreaWidth + inlineGap + textWidth
-    const startX = direction === 'right'
-      ? area.x
-      : area.x + area.width - totalWidth
-    const signFirst = direction === 'right'
-    const signArea: LabelArea = {
-      x: signFirst ? startX : startX + textWidth + inlineGap,
-      y: layout.centerY - inlineSignHeight / 2,
-      width: signAreaWidth,
-      height: inlineSignHeight,
+    case 'straight':
+      return {
+        rect: {
+          x: layout.cx - w / 2, y: Math.max(top, tip[1] - TIP_GAP - h), w, h,
+        },
+        push: [0, -1] as Point,
+      }
+    default: {
+      const left = direction === 'left-forward'
+      return {
+        rect: {
+          x: left ? tip[0] - TIP_INSET - w : tip[0] + TIP_INSET,
+          y: Math.max(top, tip[1] - TIP_GAP - h),
+          w,
+          h,
+        },
+        push: [left ? -1 : 1, 0] as Point,
+      }
     }
-    const textX = signFirst ? startX + signAreaWidth + inlineGap : startX
-
-    return <g aria-label={`${exit.destination || '未命名'} ${direction}`}>
-      {selected && <RoadSignLabel
-        selected={selected}
-        roadSignList={roadSignList}
-        fontChinese={fontChinese}
-        fontLatin={fontLatin}
-        area={signArea}
-      />}
-      {exit.destination && <OutlinedText
-        font={fontChinese}
-        text={exit.destination}
-        startX={textX}
-        startY={layout.centerY - inlineTextHeight / 2}
-        width={textWidth}
-        height={inlineTextHeight}
-        fill={WHITE}
-        options={{
-          minGap: 5,
-          maxGap: 18,
-          scaleMode: 'reference',
-          referenceText: '科技公园',
-        }}
-      />}
-    </g>
   }
-
-  const signArea: LabelArea = {
-    ...area,
-    y: isHorizontal
-      ? layout.centerY - horizontalArrowClearance - signSlotHeight - 18
-      : blockY,
-    height: signSlotHeight,
-  }
-  const textY = isHorizontal
-    ? layout.centerY + horizontalArrowClearance + 18
-    : blockY + signSlotHeight + (hasRoadSign ? 8 : 0)
-
-  return <g aria-label={`${exit.destination || '未命名'} ${direction}`}>
-    {selected && <RoadSignLabel
-      selected={selected}
-      roadSignList={roadSignList}
-      fontChinese={fontChinese}
-      fontLatin={fontLatin}
-      area={signArea}
-    />}
-    {exit.destination && <OutlinedText
-      font={fontChinese}
-      text={exit.destination}
-      startX={area.x + 8}
-      startY={textY}
-      width={area.width - 16}
-      height={textHeight}
-      fill={WHITE}
-      options={{
-        minGap: 5,
-        maxGap: 18,
-        scaleMode: 'reference',
-        referenceText: '科技公园',
-      }}
-    />}
-  </g>
 }
 
-function Branch({
-  direction,
-  roadClass,
-  layout,
-  headHalfWidth,
-}: {
-  direction: RoundaboutDirection
-  roadClass: RoundaboutRoadClass
-  layout: CanvasLayout
-  headHalfWidth: number
-}) {
-  const radians = exitAngle(direction, layout) * Math.PI / 180
-  const dx = Math.cos(radians)
-  const dy = Math.sin(radians)
-  const width = roadWidth(roadClass, layout)
-  const length = branchLength(direction, layout)
-  const arrowHalfWidth = headHalfWidth
-  const endX = layout.centerX + dx * length
-  const endY = layout.centerY + dy * length
-  const baseX = endX - dx * layout.arrowLength
-  const baseY = endY - dy * layout.arrowLength
-  const perpendicularX = -dy * arrowHalfWidth
-  const perpendicularY = dx * arrowHalfWidth
-  return <g>
-    <line
-      x1={layout.centerX + dx * layout.ringRadius}
-      y1={layout.centerY + dy * layout.ringRadius}
-      x2={baseX + dx * 5}
-      y2={baseY + dy * 5}
-      stroke={WHITE}
-      strokeWidth={width}
-      strokeLinecap="butt"
-    />
-    <polygon
-      points={`${endX},${endY} ${baseX + perpendicularX},${baseY + perpendicularY} ${baseX - perpendicularX},${baseY - perpendicularY}`}
-      fill={WHITE}
-    />
-  </g>
+function placeLabels(
+  stacks: Partial<Record<RoundaboutDirection, MeasuredStack>>,
+  layout: Layout,
+  obstacles: Obstacles,
+  hasStraight: boolean,
+) {
+  const bounds = {
+    left: FRAME_INNER + MARGIN_SIDE,
+    right: layout.width - FRAME_INNER - MARGIN_SIDE,
+    top: FRAME_INNER + MARGIN_TB,
+    bottom: layout.height - FRAME_INNER - MARGIN_TB,
+  }
+  const inside = (rect: Rect) => rect.x >= bounds.left - 1e-6 && rect.y >= bounds.top - 1e-6
+    && rect.x + rect.w <= bounds.right + 1e-6 && rect.y + rect.h <= bounds.bottom + 1e-6
+  const placed: Label[] = []
+  for (const direction of PLACEMENT_ORDER) {
+    const stack = stacks[direction]
+    if (!stack) { continue }
+    const w = stack.width / U
+    const h = stack.height / U
+    const start = initialRect(direction, exitAngle(direction, hasStraight), w, h, layout)
+    const rect = {
+      ...start.rect,
+      // Keep a wide side label inside the board before pushing it outwards.
+      x: Math.min(Math.max(start.rect.x, bounds.left), bounds.right - w),
+    }
+    const others = placed.map(label => label.rect)
+    // Try the label's own push direction first; diagonal labels may also slide
+    // down beside their arrow when the straight label takes the space above.
+    const pushes: Point[] = start.push[1] === 0 && direction.endsWith('forward')
+      ? [start.push, [start.push[0], 1], [start.push[0] * 0.5, 1]]
+      : [start.push]
+    const found = pushes.map((push) => {
+      const candidate = {
+        ...rect,
+      }
+      let steps = 0
+      while ((collides(candidate, obstacles, others) || !inside(candidate)) && steps < 200) {
+        candidate.x += push[0] * 0.02
+        candidate.y += push[1] * 0.02
+        steps++
+      }
+      return candidate
+    }).find(candidate => inside(candidate) && !collides(candidate, obstacles, others))
+    if (!found) { return null }
+    placed.push({
+      direction, stack, rect: found,
+    })
+  }
+  return placed
+}
+
+function exitRows(
+  exit: RoundaboutConfig['exits'][RoundaboutDirection],
+  roadSignList: Sign[],
+): StackRow[] {
+  const sign = roadSignList.find(candidate => candidate.id === exit.roadSignId)
+  return [
+    ...sign ? [{
+      key: `${exit.direction}-sign`, type: 'shield' as const, sign,
+    }] : [],
+    ...exit.destination.trim()
+      ? balancedLines(exit.destination, NAME_MAX).map((text, index) => ({
+        key: `${exit.direction}-${index}`, type: 'text' as const, text,
+      }))
+      : [],
+  ]
 }
 
 export function RoundaboutGuidanceSign({
@@ -437,62 +372,90 @@ export function RoundaboutGuidanceSign({
   const fontChinese = useFont('a')
   const fontLatin = useFont('b')
   const config = sign.roundaboutConfig
-  const layout = config.layout === 'wide' ? WIDE_LAYOUT : SQUARE_LAYOUT
-  const activeDirections = (Object.keys(config.exits) as RoundaboutDirection[])
+  const directions = (Object.keys(config.exits) as RoundaboutDirection[])
     .filter(direction => config.exits[direction].enabled)
-  const approachWidth = roadWidth(config.approachRoadClass, layout)
-  const approachBottom = layout.height - (layout.standardWide ? 60 : 45)
-  const ringStrokeWidth = layout.standardWide ? 30 : 43
-  const ringInnerRadius = layout.standardWide ? 25 : 34
-  const headHalfWidth = arrowHeadHalfWidth(config.exits, activeDirections, layout)
+  const hasStraight = directions.includes('straight')
+  const rows = Object.fromEntries(directions.map(direction => [
+    direction, exitRows(config.exits[direction], roadSignList),
+  ]).filter(([, list]) => list.length)) as Partial<Record<RoundaboutDirection, StackRow[]>>
+  // GB sizes a guide sign from its lettering (§4.6.4): if the straight label
+  // does not fit above the straight arrow, the board grows taller rather than
+  // every label shrinking.
+  const base = LAYOUTS[config.layout]
+  const straightNeed = rows.straight
+    ? FRAME_INNER + MARGIN_TB + measureStack(rows.straight, U, fontChinese).height / U
+      + TIP_GAP + EXIT_REACH.straight
+    : 0
+  const grow = Math.max(0, straightNeed - base.cy)
+  const layout: Layout = {
+    ...base,
+    height: base.height + grow,
+    cy: base.cy + grow,
+    approachEnd: base.approachEnd + grow,
+  }
+  const approachHalf = ARM_HALF[config.approachRoadClass]
+  const arms = directions.map(direction => ({
+    direction,
+    angle: exitAngle(direction, hasStraight),
+    reach: EXIT_REACH[direction],
+    half: ARM_HALF[config.exits[direction].roadClass],
+  }))
+  const approach = {
+    angle: 90, reach: layout.approachEnd - layout.cy, half: approachHalf,
+  }
+  const hasBadge = config.cardinalDirectionVisible && Boolean(config.cardinalDirection)
+  const obstacles = junctionObstacles(layout, [...arms, approach], hasBadge)
 
+  // All labels share one character size. Start at h and shrink in small steps
+  // only when a long name or a tall shield does not fit.
+  let labels: Label[] = []
+  for (let scale = 1; scale >= 0.5; scale -= 0.04) {
+    const stacks = Object.fromEntries(Object.entries(rows).map(([direction, list]) => [
+      direction, measureStack(list, U * scale, fontChinese),
+    ])) as Partial<Record<RoundaboutDirection, MeasuredStack>>
+    const placed = placeLabels(stacks, layout, obstacles, hasStraight)
+    if (placed) {
+      labels = placed
+      break
+    }
+  }
+
+  const translate = `translate(${layout.cx * U} ${layout.cy * U})`
   return <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox={`0 0 ${layout.width} ${layout.height}`}
+    viewBox={`0 0 ${layout.width * U} ${layout.height * U}`}
     role="img"
     aria-label="环岛图形式交叉路口预告标志"
   >
-    <SignFrame width={layout.width} height={layout.height} />
-
-    <line
-      x1={layout.centerX}
-      y1={layout.centerY + layout.ringRadius}
-      x2={layout.centerX}
-      y2={approachBottom}
-      stroke={WHITE}
-      strokeWidth={approachWidth}
-      strokeLinecap="butt"
-    />
-    {activeDirections.map(direction => <Branch
-      key={direction}
-      direction={direction}
-      roadClass={config.exits[direction].roadClass}
-      layout={layout}
-      headHalfWidth={headHalfWidth}
-    />)}
-    <circle
-      cx={layout.centerX}
-      cy={layout.centerY}
-      r={layout.ringRadius}
-      fill="none"
-      stroke={WHITE}
-      strokeWidth={ringStrokeWidth}
-    />
-    <circle cx={layout.centerX} cy={layout.centerY} r={ringInnerRadius} fill={BLUE} />
-
-    {activeDirections.map(direction => <ExitLabel
-      key={direction}
-      direction={direction}
-      sign={sign}
-      roadSignList={roadSignList}
-      fontChinese={fontChinese}
-      fontLatin={fontLatin}
-      area={layout.labelAreas[direction]}
-      layout={layout}
-      headHalfWidth={headHalfWidth}
-    />)}
-
+    <SignFrame width={layout.width * U} height={layout.height * U} unit={U} />
+    <g transform={translate} fill={WHITE}>
+      <path d={toPath(armPolygon(radians(approach.angle), approach.reach, approach.half, false))} />
+      {arms.map(arm => <path
+        key={arm.direction}
+        d={toPath(armPolygon(radians(arm.angle), arm.reach, arm.half, true))}
+      />)}
+      {[...arms, approach].flatMap(arm => ([1, -1] as const).map(side => <path
+        key={`${arm.angle}-${side}`}
+        d={toPath(filletPolygon(radians(arm.angle), arm.half, side))}
+      />))}
+      <circle r={RING_OUTER * U} />
+      <circle r={RING_INNER * U} fill={BLUE} />
+      <path d={toPath(slitPolygon(approachHalf))} fill={BLUE} />
+    </g>
+    {labels.map(label => <g
+      key={label.direction}
+      aria-label={`${config.exits[label.direction].destination || '未命名'} ${label.direction}`}
+    >
+      <StackBlock
+        stack={label.stack}
+        x={label.rect.x * U}
+        y={label.rect.y * U}
+        roadSignList={roadSignList}
+        fontChinese={fontChinese}
+        fontLatin={fontLatin}
+      />
+    </g>)}
     {config.cardinalDirectionVisible
-      && <CardinalBadge text={config.cardinalDirection} font={fontChinese} />}
+      && <CardinalBadge text={config.cardinalDirection} font={fontChinese} unit={U} />}
   </svg>
 }

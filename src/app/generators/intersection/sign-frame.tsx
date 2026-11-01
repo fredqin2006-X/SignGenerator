@@ -6,76 +6,73 @@ import type {
   Font,
 } from '@pdf-lib/fontkit'
 
-// Shared visual spec for every sign in the 交叉路口 workspace. All values are
-// in viewBox units; the three boards are 820–1000 units wide, so using the same
-// absolute sizes keeps borders and badges visually identical side by side.
 export const BLUE = '#2C64AD'
 export const WHITE = '#FFFFFF'
 export const RED = '#EE2525'
 
+// GB 5768.2-2022 §4.6.5 and figure 3, in multiples of the board's character
+// height h: blue margin (衬边) 0.1h, white border 0.1h, corner radii 0.4h /
+// 0.3h / 0.2h for the board, the border's outer edge and its inner edge.
 export const FRAME = {
-  // Corner radius of the blue board.
-  radius: 34,
-  // Blue gap between the board edge and the outer edge of the white border.
-  margin: 14,
-  // White border stroke width.
-  borderWidth: 9,
+  margin: 0.1,
+  border: 0.1,
+  radius: 0.4,
 } as const
 
-// Distance from the board edge to the inner edge of the white border.
-export const FRAME_INNER = FRAME.margin + FRAME.borderWidth
+// Board edge to the inner edge of the white border, in h.
+export const FRAME_INNER = FRAME.margin + FRAME.border
 
-const BADGE = {
-  // Gap between the inner edge of the white border and the badge.
-  gap: 13,
-  size: 60,
-  radius: 4,
-  glyph: 42,
-} as const
+// Cardinal direction badge (figure 205, drawing E.167): a white square of 0.9h
+// tucked into the inner corner of the border, merging with it.
+export const BADGE_SIZE = 0.9
+const BADGE_GLYPH = 0.66
 
 export function SignFrame({
-  width, height,
-}: { width: number; height: number }) {
-  // The border is drawn on its centre line; using radius minus that inset
-  // keeps the white border concentric with the board corners.
-  const inset = FRAME.margin + FRAME.borderWidth / 2
+  width, height, unit,
+}: { width: number; height: number; unit: number }) {
+  // The border is stroked on its centre line, 0.15h in, with a 0.25h radius,
+  // which puts its edges on the 0.3h and 0.2h radii of figure 3.
+  const inset = (FRAME.margin + FRAME.border / 2) * unit
   return <>
-    <rect width={width} height={height} rx={FRAME.radius} fill={BLUE} />
+    <rect width={width} height={height} rx={FRAME.radius * unit} fill={BLUE} />
     <rect
       x={inset}
       y={inset}
       width={width - inset * 2}
       height={height - inset * 2}
-      rx={FRAME.radius - inset}
+      rx={FRAME.radius * unit - inset}
       fill="none"
       stroke={WHITE}
-      strokeWidth={FRAME.borderWidth}
+      strokeWidth={FRAME.border * unit}
     />
   </>
 }
 
 export function CardinalBadge({
-  text, font,
-}: { text: string; font: Font }) {
+  text, font, unit,
+}: { text: string; font: Font; unit: number }) {
   if (!text) { return null }
-  const position = FRAME_INNER + BADGE.gap
-  const glyphOffset = (BADGE.size - BADGE.glyph) / 2
+  const inner = FRAME_INNER * unit
+  // Start on the border's centre line so the badge overlaps the border and
+  // the two read as one white shape, following the border's corner arc.
+  const start = (FRAME.margin + FRAME.border / 2) * unit
+  const corner = FRAME.radius * unit - start
+  const end = inner + BADGE_SIZE * unit
+  const glyph = BADGE_GLYPH * unit
+  const glyphStart = inner + (BADGE_SIZE * unit - glyph) / 2
   return <g aria-label={`${text}方位`}>
-    <rect
-      x={position}
-      y={position}
-      width={BADGE.size}
-      height={BADGE.size}
-      rx={BADGE.radius}
+    <path
+      d={`M${start} ${start + corner}A${corner} ${corner} 0 0 1 ${start + corner} ${start}`
+        + `H${end}V${end}H${start}z`}
       fill={WHITE}
     />
     <OutlinedText
       font={font}
       text={text}
-      startX={position + glyphOffset}
-      startY={position + glyphOffset}
-      width={BADGE.glyph}
-      height={BADGE.glyph}
+      startX={glyphStart}
+      startY={glyphStart}
+      width={glyph}
+      height={glyph}
       fill={BLUE}
     />
   </g>
